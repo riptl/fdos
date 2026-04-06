@@ -10,6 +10,7 @@ include(CheckCSourceCompiles)
 find_package(Threads REQUIRED)
 
 option(FDOS_X86_FRED "Use x86 FRED context switching" OFF)
+set(FDOS_BARE OFF)
 
 include(CTest)
 
@@ -46,7 +47,10 @@ ExternalProject_Add(fdos_guest
   SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/guest"
   CMAKE_ARGS
     -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/guest/fdos_x86.cmake
+    -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
     -DFDOS_X86_FRED=${FDOS_X86_FRED}
     -DPICOLIBC_INSTALL_DIR=${PICOLIBC_INSTALL_DIR}
-  INSTALL_COMMAND "")
+    -DBUILD_TESTING=OFF
+  UPDATE_DISCONNECTED FALSE
+  CONFIGURE_HANDLED_BY_BUILD FALSE)
 add_dependencies(fdos_guest picolibc)

@@ -1,12 +1,17 @@
-target_sources(fd_util PRIVATE
-  fd_tile.c
-  fd_tile_threads.c
-)
+target_sources(fd_util PRIVATE fd_tile.c)
 
-add_executable(test_cpuset test_cpuset.c)
-target_link_libraries(test_cpuset PRIVATE fd_util)
-add_test(NAME test_cpuset COMMAND test_cpuset)
+if(NOT FDOS_BARE)
+  target_sources(fd_util PRIVATE fd_tile_threads.c)
+else()
+  target_sources(fd_util PRIVATE fd_tile_nothreads.c)
+endif()
 
-add_executable(test_tile test_tile.c)
-target_link_libraries(test_tile PRIVATE fd_util)
-add_test(NAME test_tile COMMAND test_tile)
+if(BUILD_TESTING)
+  add_executable(test_cpuset test_cpuset.c)
+  target_link_libraries(test_cpuset PRIVATE fd_util)
+  add_test(NAME test_cpuset COMMAND test_cpuset)
+
+  add_executable(test_tile test_tile.c)
+  target_link_libraries(test_tile PRIVATE fd_util)
+  add_test(NAME test_tile COMMAND test_tile)
+endif()

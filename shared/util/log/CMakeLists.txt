@@ -1,8 +1,10 @@
-target_sources(fd_util PRIVATE
-  fd_log.c
-  fd_backtrace.c
-)
+target_sources(fd_util PRIVATE fd_log.c)
+if(NOT FDOS_BARE)
+  target_sources(fd_util PRIVATE fd_backtrace.c)
+endif()
 
-add_executable(test_log test_log.c)
-target_link_libraries(test_log PRIVATE fd_util)
-add_test(NAME test_log COMMAND test_log)
+if(BUILD_TESTING)
+  add_executable(test_log test_log.c)
+  target_link_libraries(test_log PRIVATE fd_util)
+  add_test(NAME test_log COMMAND test_log)
+endif()
