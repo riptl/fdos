@@ -1,0 +1,36 @@
+set(CMAKE_SYSTEM_NAME fdos)
+
+set(CMAKE_C_COMPILER clang)
+set(CMAKE_C_COMPILER_TARGET x86_64-unknown-elf)
+set(CMAKE_LINKER ld.lld)
+
+set(CMAKE_C_LINK_EXECUTABLE
+  "<CMAKE_LINKER> <CMAKE_C_LINK_FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
+
+set(CMAKE_C_FLAGS_INIT
+  "-march=x86-64-v2 \
+  -mtune=generic \
+  --no-default-config \
+  -ffreestanding \
+  -fno-plt \
+  -fno-pie \
+  -fno-pic \
+  -static \
+  -fno-common \
+  -nostdinc \
+  -nostdlib \
+  -nostartfiles \
+  -nodefaultlibs \
+  -mno-red-zone \
+  -mcmodel=kernel \
+  -minvpcid"
+)
+
+set(CMAKE_EXE_LINKER_FLAGS_INIT
+  "--no-undefined \
+  --no-dynamic-linker \
+  --static \
+  -T ${CMAKE_CURRENT_SOURCE_DIR}/fdos_x86.ld \
+  -u fdos_kern_entry_idt")
+
+set(CMAKE_C_COMPILER_WORKS 1)

@@ -44,3 +44,9 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
 endif()
 
 add_subdirectory(shared)
+
+include(ExternalProject)
+ExternalProject_Add(fdos_guest
+  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/guest"
+  CMAKE_ARGS "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/guest/fdos_x86.cmake"
+  INSTALL_COMMAND "")
