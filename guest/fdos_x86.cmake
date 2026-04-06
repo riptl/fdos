@@ -1,4 +1,4 @@
-set(CMAKE_SYSTEM_NAME fdos)
+set(CMAKE_SYSTEM_NAME Linux)
 
 set(CMAKE_C_COMPILER clang)
 set(CMAKE_C_COMPILER_TARGET x86_64-unknown-elf)
@@ -6,6 +6,11 @@ set(CMAKE_LINKER ld.lld)
 
 set(CMAKE_C_LINK_EXECUTABLE
   "<CMAKE_LINKER> <CMAKE_C_LINK_FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
+
+execute_process(
+  COMMAND ${CMAKE_C_COMPILER} --print-resource-dir
+  OUTPUT_VARIABLE CLANG_RESOURCE_DIR
+  OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 set(CMAKE_C_FLAGS_INIT
   "-march=x86-64-v2 \
@@ -18,6 +23,7 @@ set(CMAKE_C_FLAGS_INIT
   -static \
   -fno-common \
   -nostdinc \
+  -isystem ${CLANG_RESOURCE_DIR}/include \
   -nostdlib \
   -nostartfiles \
   -nodefaultlibs \
