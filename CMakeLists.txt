@@ -11,6 +11,8 @@ option(FDOS_TESTS "Build tests" OFF)
 include(CheckCSourceCompiles)
 find_package(Threads REQUIRED)
 
+option(FDOS_X86_FRED "Use x86 FRED context switching" OFF)
+
 if(FDOS_TESTS)
   enable_testing()
 endif()

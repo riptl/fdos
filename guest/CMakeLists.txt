@@ -14,6 +14,12 @@ set_target_properties(picolibc_libc PROPERTIES
   IMPORTED_LOCATION "${PICOLIBC_INSTALL_DIR}/lib/libc.a"
   INTERFACE_INCLUDE_DIRECTORIES "${PICOLIBC_INSTALL_DIR}/include")
 
+option(FDOS_X86_FRED "Use x86 FRED context switching" OFF)
+if(FDOS_X86_FRED)
+  set(FDOS_CTX_SRC fdos_ctx_fred.c)
+else()
+  set(FDOS_CTX_SRC fdos_ctx_idt.c)
+endif()
 add_library(fdos_kern STATIC)
 target_link_libraries(fdos_kern PUBLIC picolibc_libc)
 
