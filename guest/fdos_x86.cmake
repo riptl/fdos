@@ -37,6 +37,7 @@ set(CMAKE_EXE_LINKER_FLAGS_INIT
   --no-dynamic-linker \
   --static \
   -T ${CMAKE_CURRENT_SOURCE_DIR}/fdos_x86.ld \
-  -u fdos_kern_entry_idt")
+  -u fdos_kern_entry_idt \
+  -u fdos_kern_entry_fred")
 
 set(CMAKE_C_COMPILER_WORKS 1)

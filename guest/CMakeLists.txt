@@ -18,21 +18,17 @@ string(APPEND CMAKE_EXE_LINKER_FLAGS " ${PICOLIBC_INSTALL_DIR}/lib/libc.a")
 
 string(APPEND CMAKE_C_FLAGS " -DFD_ENV_STYLE=1 -DFD_LOG_STYLE=1 -DFD_IO_STYLE=1")
 
-option(FDOS_X86_FRED "Use x86 FRED context switching" OFF)
-if(FDOS_X86_FRED)
-  set(FDOS_CTX_SRC fdos_ctx_fred.c)
-else()
-  set(FDOS_CTX_SRC fdos_ctx_idt.c)
-endif()
-
 add_subdirectory(../shared/fdos ${CMAKE_CURRENT_BINARY_DIR}/shared/fdos)
 add_subdirectory(../shared/util ${CMAKE_CURRENT_BINARY_DIR}/shared/util)
 
 add_library(fdos_kern STATIC
-  ${FDOS_CTX_SRC}
+  fdos_ctx.c
+  fdos_ctx_fred.c
+  fdos_ctx_idt.c
   fdos_kern_io.c
   fdos_kern_log.c
 )
+set_target_properties(fdos_kern PROPERTIES LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/fdos_x86.ld")
 target_link_libraries(fdos_kern PUBLIC fd_util)
 
 add_executable(kern_hlt kern_hlt.c)

@@ -1,6 +1,6 @@
 /* Context switching (FRED mode) */
 
-#include "fdos_hypercall.h"
+#include "../shared/fdos/fdos_hypercall.h"
 
 /* FiredancerOS currently forwards all FRED events (including
    faulting interrupts) to the KVM host.

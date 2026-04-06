@@ -152,11 +152,8 @@ fdos_kern_img_sym_load( fdos_env_t *  env,
     }
   }
 
-  FD_TEST( env->ring3_enter_ptr_off     != ULONG_MAX );
-  FD_TEST( env->ring3_enter_idt_gvaddr  != 0UL );
-  FD_TEST( env->ring3_enter_fred_gvaddr != 0UL );
-  FD_TEST( env->entry_idt_gvaddr        != 0UL );
-  FD_TEST( env->entry_fred_gvaddr       != 0UL );
+  FD_TEST( env->entry_idt_gvaddr  != 0UL );
+  FD_TEST( env->entry_fred_gvaddr != 0UL );
 }
 
 void
@@ -226,8 +223,10 @@ fdos_env_img_patch( fdos_env_t * env ) {
   ulong ring3_enter_gvaddr =
     fred ? env->ring3_enter_fred_gvaddr
          : env->ring3_enter_idt_gvaddr;
-  ulong * ring3_enter_ptr = (ulong *)( (ulong)env->data.haddr + env->ring3_enter_ptr_off );
-  *ring3_enter_ptr = ring3_enter_gvaddr;
+  if( env->ring3_enter_ptr_off!=ULONG_MAX ) {
+    ulong * ring3_enter_ptr = (ulong *)( (ulong)env->data.haddr + env->ring3_enter_ptr_off );
+    *ring3_enter_ptr = ring3_enter_gvaddr;
+  }
 
   ulong entry_gvaddr =
     fred ? env->entry_fred_gvaddr
