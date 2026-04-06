@@ -15,15 +15,13 @@ target_compile_definitions(fd_util PUBLIC
   FD_HAS_ALLOCA=1
 )
 
-if(FDOS_TESTS)
-  add_executable(test_util test_util.c)
-  target_link_libraries(test_util PRIVATE fd_util)
-  add_test(NAME test_util COMMAND test_util)
+add_executable(test_util test_util.c)
+target_link_libraries(test_util PRIVATE fd_util)
+add_test(NAME test_util COMMAND test_util)
 
-  add_executable(test_util_base test_util_base.c)
-  target_link_libraries(test_util_base PRIVATE fd_util)
-  add_test(NAME test_util_base COMMAND test_util_base)
-endif()
+add_executable(test_util_base test_util_base.c)
+target_link_libraries(test_util_base PRIVATE fd_util)
+add_test(NAME test_util_base COMMAND test_util_base)
 
 add_subdirectory(bits)
 add_subdirectory(cstr)

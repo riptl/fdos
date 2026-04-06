@@ -6,16 +6,12 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-option(FDOS_TESTS "Build tests" OFF)
-
 include(CheckCSourceCompiles)
 find_package(Threads REQUIRED)
 
 option(FDOS_X86_FRED "Use x86 FRED context switching" OFF)
 
-if(FDOS_TESTS)
-  enable_testing()
-endif()
+include(CTest)
 
 add_subdirectory(arch/x86)
 add_subdirectory(shared/fdos)

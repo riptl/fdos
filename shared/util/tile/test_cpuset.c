@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "../fd_util.h"
 #include "fd_tile_private.h"
 #include <sched.h>
