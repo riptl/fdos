@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "fd_backtrace.h"
 #include "../fd_util_base.h"
 #include "../log/fd_log.h"

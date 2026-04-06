@@ -109,106 +109,6 @@
 #define FD_HAS_ALLOCA 0
 #endif
 
-/* FD_HAS_X86:  If the build target supports x86 specific features and
-   can benefit from x86 specific optimizations, define FD_HAS_X86.  Code
-   needing more specific target features (Intel / AMD / SSE / AVX2 /
-   AVX512 / etc) can specialize further as necessary with even more
-   precise capabilities (that in turn imply FD_HAS_X86). */
-
-#ifndef FD_HAS_X86
-#define FD_HAS_X86 0
-#endif
-
-/* These allow even more precise targeting for X86. */
-
-/* FD_HAS_SSE indicates the target supports Intel SSE4 style SIMD
-   (basically do the 128-bit wide parts of "x86intrin.h" work).
-   Recommend using the simd/fd_sse.h APIs instead of raw Intel
-   intrinsics for readability and to facilitate portability to non-x86
-   platforms.  Implies FD_HAS_X86. */
-
-#ifndef FD_HAS_SSE
-#define FD_HAS_SSE 0
-#endif
-
-/* FD_HAS_AVX indicates the target supports Intel AVX2 style SIMD
-   (basically do the 256-bit wide parts of "x86intrin.h" work).
-   Recommend using the simd/fd_avx.h APIs instead of raw Intel
-   intrinsics for readability and to facilitate portability to non-x86
-   platforms.  Implies FD_HAS_SSE. */
-
-#ifndef FD_HAS_AVX
-#define FD_HAS_AVX 0
-#endif
-
-/* FD_HAS_AVX512 indicates the target supports Intel AVX-512 style SIMD
-   (basically do the 512-bit wide parts of "x86intrin.h" work).
-   Recommend using the simd/fd_avx512.h APIs instead of raw Intel
-   intrinsics for readability and to facilitate portability to non-x86
-   platforms.  Implies FD_HAS_AVX. */
-
-#ifndef FD_HAS_AVX512
-#define FD_HAS_AVX512 0
-#endif
-
-/* FD_HAS_SHANI indicates that the target supports Intel SHA extensions
-   which accelerate SHA-1 and SHA-256 computation.  This extension is
-   also called SHA-NI or SHA_NI (Secure Hash Algorithm New
-   Instructions).  Although proposed in 2013, they're only supported on
-   Intel Ice Lake and AMD Zen CPUs and newer.  Implies FD_HAS_AVX. */
-
-#ifndef FD_HAS_SHANI
-#define FD_HAS_SHANI 0
-#endif
-
-/* FD_HAS_GFNI indicates that the target supports Intel Galois Field
-   extensions, which accelerate operations over binary extension fields,
-   especially GF(2^8).  These instructions are supported on Intel Ice
-   Lake and newer and AMD Zen4 and newer CPUs.  Implies FD_HAS_AVX. */
-
-#ifndef FD_HAS_GFNI
-#define FD_HAS_GFNI 0
-#endif
-
-/* FD_HAS_AESNI indicates that the target supports AES-NI extensions,
-   which accelerate AES encryption and decryption.  While AVX predates
-   the original AES-NI extension, the combination of AES-NI+AVX adds
-   additional opcodes (such as vaesenc, a more flexible variant of
-   aesenc).  Thus, implies FD_HAS_AVX.  A conservative estimate for
-   minimum platform support is Intel Haswell or AMD Zen. */
-
-#ifndef FD_HAS_AESNI
-#define FD_HAS_AESNI 0
-#endif
-
-/* FD_HAS_ARM:  If the build target supports armv8-a specific features
-   and can benefit from aarch64 specific optimizations, define
-   FD_HAS_ARM. */
-
-#ifndef FD_HAS_ARM
-#define FD_HAS_ARM 0
-#endif
-
-/* FD_HAS_LZ4 indicates that the target supports LZ4 compression.
-   Roughly, does "#include <lz4.h>" and the APIs therein work? */
-
-#ifndef FD_HAS_LZ4
-#define FD_HAS_LZ4 0
-#endif
-
-/* FD_HAS_ZSTD indicates that the target supports ZSTD compression.
-   Roughly, does "#include <zstd.h>" and the APIs therein work? */
-
-#ifndef FD_HAS_ZSTD
-#define FD_HAS_ZSTD 0
-#endif
-
-/* FD_HAS_COVERAGE indicates that the build target is built with coverage instrumentation. */
-
-#ifndef FD_HAS_COVERAGE
-#define FD_HAS_COVERAGE 0
-#endif
-
 /* FD_HAS_ASAN indicates that the build target is using ASAN. */
 
 #ifndef FD_HAS_ASAN
@@ -765,7 +665,7 @@ fd_type_pun_const( void const * p ) {
    memory) but this should not be relied upon for portable code
    (consider making this a compiler memory fence on all platforms?) */
 
-#if FD_HAS_X86
+#if defined(__x86_64__)
 #define FD_SPIN_PAUSE() __builtin_ia32_pause()
 #else
 #define FD_SPIN_PAUSE() ((void)0)
@@ -858,7 +758,7 @@ fd_type_pun_const( void const * p ) {
    slowly via CAS there).  Sigh ... we do what we can to fix this up. */
 
 #ifndef FD_ATOMIC_XCHG_STYLE
-#if FD_HAS_X86 && !__cplusplus
+#if defined(__x86_64__) && !__cplusplus
 #define FD_ATOMIC_XCHG_STYLE 1
 #else
 #define FD_ATOMIC_XCHG_STYLE 0
@@ -1105,143 +1005,8 @@ typedef long (*fd_clock_func_t)( void const * args );
 
 FD_PROTOTYPES_BEGIN
 
-/* fd_memcpy(d,s,sz):  On modern x86 in some circumstances, rep mov will
-   be faster than memcpy under the hood (basically due to RFO /
-   read-for-ownership optimizations in the cache protocol under the hood
-   that aren't easily done from the ISA ... see Intel docs on enhanced
-   rep mov).  Compile time configurable though as this is not always
-   true.  So application can tune to taste.  Hard to beat rep mov for
-   code density though (2 bytes) and pretty hard to beat in situations
-   needing a completely generic memcpy.  But it can be beaten in
-   specialized situations for the usual reasons. */
-
-/* FIXME: CONSIDER MEMCMP TOO! */
-/* FIXME: CONSIDER MEMCPY RELATED FUNC ATTRS */
-
-#ifndef FD_USE_ARCH_MEMCPY
-#define FD_USE_ARCH_MEMCPY 0
-#endif
-
-#if FD_HAS_X86 && FD_USE_ARCH_MEMCPY && !defined(CBMC) && !FD_HAS_DEEPASAN && !FD_HAS_MSAN
-
-static inline void *
-fd_memcpy( void       * FD_RESTRICT d,
-           void const * FD_RESTRICT s,
-           ulong                    sz ) {
-  void * p = d;
-  __asm__ __volatile__( "rep movsb" : "+D" (p), "+S" (s), "+c" (sz) :: "memory" );
-  return d;
-}
-
-#elif FD_HAS_MSAN
-
-void * __msan_memcpy( void * dest, void const * src, ulong n );
-
-static inline void *
-fd_memcpy( void       * FD_RESTRICT d,
-           void const * FD_RESTRICT s,
-           ulong                    sz ) {
-  return __msan_memcpy( d, s, sz );
-}
-
-#else
-
-static inline void *
-fd_memcpy( void       * FD_RESTRICT d,
-           void const * FD_RESTRICT s,
-           ulong                    sz ) {
-#if defined(CBMC) || FD_HAS_ASAN
-  if( FD_UNLIKELY( !sz ) ) return d; /* Standard says sz 0 is UB, uncomment if target is insane and doesn't treat sz 0 as a nop */
-#endif
-  return memcpy( d, s, sz );
-}
-
-#endif
-
-/* fd_memset(d,c,sz): architecturally optimized memset.  See fd_memcpy
-   for considerations. */
-
-/* FIXME: CONSIDER MEMSET RELATED FUNC ATTRS */
-
-#ifndef FD_USE_ARCH_MEMSET
-#define FD_USE_ARCH_MEMSET 0
-#endif
-
-#if FD_HAS_X86 && FD_USE_ARCH_MEMSET && !defined(CBMC) && !FD_HAS_DEEPASAN && !FD_HAS_MSAN
-
-static inline void *
-fd_memset( void  * d,
-           int     c,
-           ulong   sz ) {
-  void * p = d;
-  __asm__ __volatile__( "rep stosb" : "+D" (p), "+c" (sz) : "a" (c) : "memory" );
-  return d;
-}
-
-#else
-
-static inline void *
-fd_memset( void  * d,
-           int     c,
-           ulong   sz ) {
-# ifdef CBMC
-  if( FD_UNLIKELY( !sz ) ) return d; /* See fd_memcpy note */
-# endif
-  return memset( d, c, sz );
-}
-
-#endif
-
-/* Calling fd_memzero_explicit will fill the provided region with zeroes.
-   It is guaranteed to not be optimized away.  */
-FD_FN_UNUSED static inline void
-fd_memzero_explicit( void * d,
-                    ulong  sz ) {
-   /* We don't want to depend on explicit_bzero or memset_s, so the simplest
-      way to ensure the memset is not optimized away is to use a compiler fence,
-      identical to how explicit_bzero is implemented.
-      https://elixir.bootlin.com/glibc/glibc-2.40/source/string/explicit_bzero.c#L33 */
-   memset( d, 0, sz );
-   __asm__ __volatile__( "" ::: "memory" );
-}
-
-/* fd_memeq(s0,s1,sz):  Compares two blocks of memory.  Returns 1 if
-   equal or sz is zero and 0 otherwise.  No memory accesses made if sz
-   is zero (pointers may be invalid).  On x86, uses repe cmpsb which is
-   preferable to __builtin_memcmp in some cases. */
-
-#ifndef FD_USE_ARCH_MEMEQ
-#define FD_USE_ARCH_MEMEQ 0
-#endif
-
-#if FD_HAS_X86 && FD_USE_ARCH_MEMEQ && defined(__GCC_ASM_FLAG_OUTPUTS__) && __STDC_VERSION__>=199901L
-
-FD_FN_PURE static inline int
-fd_memeq( void const * s0,
-          void const * s1,
-          ulong        sz ) {
-  /* ZF flag is set and exported in two cases:
-      a) size is zero (via test)
-      b) buffer is equal (via repe cmpsb) */
-  int r;
-  __asm__( "test %3, %3;"
-           "repe cmpsb"
-         : "=@cce" (r), "+S" (s0), "+D" (s1), "+c" (sz)
-         : "m" (*(char const (*)[sz]) s0), "m" (*(char const (*)[sz]) s1)
-         : "cc" );
-  return r;
-}
-
-#else
-
-FD_FN_PURE static inline int
-fd_memeq( void const * s1,
-          void const * s2,
-          ulong        sz ) {
-  return 0==memcmp( s1, s2, sz );
-}
-
-#endif
+#define fd_memcpy memcpy
+#define fd_memset memset
 
 /* Returns 1 if all sz bytes starting at s are zero, 0 otherwise. */
 FD_FN_PURE static inline int
@@ -1273,9 +1038,9 @@ fd_hash_memcpy( ulong                    seed,
                 ulong                    sz );
 
 #ifndef FD_TICKCOUNT_STYLE
-#if FD_HAS_X86 /* Use RDTSC */
+#if defined(__x86_64__) /* Use RDTSC */
 #define FD_TICKCOUNT_STYLE 1
-#elif FD_HAS_ARM /* Use CNTVCT_EL0 */
+#elif defined(__aarch64__) /* Use CNTVCT_EL0 */
 #define FD_TICKCOUNT_STYLE 2
 #else /* Use portable fallback */
 #define FD_TICKCOUNT_STYLE 0

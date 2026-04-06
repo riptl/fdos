@@ -153,7 +153,7 @@ fd_wksp_checkpt_tpool( fd_tpool_t * tpool,
     return FD_WKSP_ERR_INVAL;
   }
 
-  style = fd_int_if( !!style, style, FD_HAS_LZ4 ? FD_WKSP_CHECKPT_STYLE_V3 : FD_WKSP_CHECKPT_STYLE_V2 );
+  style = fd_int_if( !!style, style, FD_WKSP_CHECKPT_STYLE_V2 );
 
   if( FD_UNLIKELY( !uinfo ) ) uinfo = "";
 

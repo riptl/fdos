@@ -7,7 +7,6 @@ target_include_directories(fd_util PUBLIC ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(fd_util PUBLIC Threads::Threads m rt dl)
 
 target_compile_definitions(fd_util PUBLIC
-  _GNU_SOURCE
   FD_HAS_HOSTED=1
   FD_HAS_ATOMIC=1
   FD_HAS_THREADS=1
@@ -15,31 +14,6 @@ target_compile_definitions(fd_util PUBLIC
   FD_HAS_DOUBLE=1
   FD_HAS_ALLOCA=1
 )
-
-if(FD_HAS_X86)
-  target_compile_definitions(fd_util PUBLIC FD_HAS_X86=1)
-endif()
-if(FD_HAS_SSE)
-  target_compile_definitions(fd_util PUBLIC FD_HAS_SSE=1)
-endif()
-if(FD_HAS_AVX)
-  target_compile_definitions(fd_util PUBLIC FD_HAS_AVX=1)
-endif()
-if(FD_HAS_AVX512)
-  target_compile_definitions(fd_util PUBLIC FD_HAS_AVX512=1)
-endif()
-if(FD_HAS_AESNI)
-  target_compile_definitions(fd_util PUBLIC FD_HAS_AESNI=1)
-endif()
-if(FD_HAS_SHANI)
-  target_compile_definitions(fd_util PUBLIC FD_HAS_SHANI=1)
-endif()
-if(FD_HAS_GFNI)
-  target_compile_definitions(fd_util PUBLIC FD_HAS_GFNI=1)
-endif()
-if(FD_HAS_ARM)
-  target_compile_definitions(fd_util PUBLIC FD_HAS_ARM=1)
-endif()
 
 if(FDOS_TESTS)
   add_executable(test_util test_util.c)

@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #ifndef FD_LOG_STYLE
 #if FD_HAS_HOSTED
 #define FD_LOG_STYLE 0

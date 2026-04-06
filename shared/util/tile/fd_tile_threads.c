@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <ctype.h>
 #include <errno.h>
 #include <pthread.h>
@@ -613,7 +614,7 @@ fd_tile_private_map_boot( ushort * tile_to_cpu,
        stack and try to discover the stack extents after the thread is
        started. */
 
-    int optimize = FD_HAS_X86 & fixed;
+    int optimize = fixed;
 
     void * stack = fd_tile_private_stack_new( optimize, cpu_idx );
     if( FD_LIKELY( stack ) ) {
