@@ -16,7 +16,8 @@ if(FDOS_TESTS)
 endif()
 
 add_subdirectory(arch/x86)
-add_subdirectory(shared)
+add_subdirectory(shared/fdos)
+add_subdirectory(shared/util)
 add_subdirectory(host)
 
 include(ExternalProject)
