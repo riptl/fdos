@@ -43,6 +43,7 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
   unset(CMAKE_REQUIRED_FLAGS)
 endif()
 
+add_subdirectory(arch/x86)
 add_subdirectory(shared)
 
 include(ExternalProject)
