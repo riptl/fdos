@@ -1,0 +1,132 @@
+#pragma once
+
+#include "../shared/fdos/fdos_hypercall.h"
+#include "../shared/fdos/fdos_vmm.h"
+#include "../shared/fdos/fdos_pvclock.h"
+#include "../arch/x86/fd_x86_gdt.h"
+#include "../arch/x86/fd_x86_idt.h"
+#include "../arch/x86/fd_x86_tss.h"
+#include "../shared/util/wksp/fd_wksp.h"
+
+struct fdos_vmo {
+  ulong haddr;
+  ulong gvaddr;
+  ulong gpaddr;
+  ulong sz;
+};
+
+typedef struct fdos_vmo fdos_vmo_t;
+
+#define FDOS_PIDX_KERN_HEAP   0
+#define FDOS_PIDX_KERN_STACK  1
+#define FDOS_PIDX_KERN_TEXT   2
+#define FDOS_PIDX_KERN_RODATA 3
+#define FDOS_PIDX_KERN_DATA   4
+#define FDOS_PIDX_USER_MEM    5
+#define FDOS_PIDX_SHMEM       6
+#define FDOS_PIDX_MAX         7
+
+struct fdos_phys {
+  uint  gpaddr0 : 31;
+  uint  rw      :  1;
+  uint  gpaddr1 : 31;
+  ulong haddr;
+};
+
+typedef struct fdos_phys fdos_phys_t;
+
+struct fdos_env {
+  fd_wksp_t * wksp_kern_heap;  /* general-purpose heap allocator */
+  fd_wksp_t * wksp_kern_data;  /* .data section */
+  fd_wksp_t * wksp_kern_stack;
+  fd_wksp_t * wksp_user_mem;   /* copy of user virtual memory map */
+
+  /* Physical memory mappings */
+  fdos_phys_t phys[ FDOS_PIDX_MAX ];
+
+  /* Page tables */
+  fdos_vmm_alloc_t vmm_alloc[1];
+  ulong *          pml4;
+
+  /* Kernel stack */
+  ulong stack_kern_top_gvaddr;
+  ulong stack_kern_sz;
+  ulong stack_int_top_gvaddr;
+  ulong stack_int_sz;
+
+  /* Kernel image */
+  fdos_vmo_t text;
+  fdos_vmo_t rodata;
+  fdos_vmo_t data;
+
+  /* Kernel entrypoint */
+  ulong entry_gvaddr;
+  ulong entry_idt_gvaddr;
+  ulong entry_fred_gvaddr;
+
+  /* ring0->ring3 context switch routine */
+  ulong ring3_enter_ptr_off;  /* .data offset of fdos_ring3_enter_ptr */
+  ulong ring3_enter_idt_gvaddr;
+  ulong ring3_enter_fred_gvaddr;
+
+  /* ring3->ring0 context switch */
+  ulong syscall_handler_gvaddr;
+
+  /* Interrupt handler */
+  ulong int_handler_gvaddr; /* 256 bytes, 1 byte for each interrupt descriptor */
+  ulong fred_handler_gvaddr;
+
+  /* TSS (kernel, user) */
+  fd_x86_tss64_t * tss_kern;
+  ulong            tss_kern_gvaddr;
+
+  /* GDT */
+  ulong          gdt_gvaddr;
+  fd_x86_gdt_t * gdt;
+
+  /* IDT */
+  ulong               idt_gvaddr;
+  fd_x86_idt_gate_t * idt;
+
+  /* Startup args */
+  ulong              entry_args_gvaddr;
+  fdos_kern_args_t * entry_args;
+
+  /* pvclock */
+  fd_pvclock_t * pvclock;
+  ulong          pvclock_gpaddr;
+  ulong          pvclock_kern_gvaddr;
+  ulong          pvclock_user_gvaddr;
+
+  /* Flags */
+# define FDOS_TRACE_MODE_OFF 0
+# define FDOS_TRACE_MODE_RIP 1
+  uint trace_mode : 4;
+  uint fred       : 1;
+};
+
+typedef struct fdos_env fdos_env_t;
+
+void
+fdos_env_img_load( fdos_env_t *  env,
+                   uchar const * bin,
+                   ulong         bin_sz );
+
+void
+fdos_env_img_patch( fdos_env_t * env );
+
+/* fdos_env_create sets up all fdos kernel data structures
+   needed to bootstrap a KVM ring 0 guest environment. */
+
+fdos_env_t *
+fdos_env_create( fdos_env_t *  env,
+                 uchar const * kern_bin,
+                 ulong         kern_bin_sz );
+
+void
+fdos_env_destroy( fdos_env_t * env );
+
+uchar *
+fdos_gpaddr_to_haddr( ulong             gpaddr,
+                      ulong             sz,
+                      fdos_phys_t const phys[ FDOS_PIDX_MAX ] );

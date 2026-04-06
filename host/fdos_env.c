@@ -1,0 +1,349 @@
+/* fdos_env.c sets up kernel data structures.
+
+   Conventionally, an operating system would set up its own data
+   structures in a bootloader.  In fdos, we instead opt to let the host
+   set up the kernel's data structures.  This allows the virtualized
+   kernel to instantly boot in a ready environment, and also saves
+   complex legacy setup (e.g. manually bringing up the CPU from real to
+   long mode, or switching between different address spaces). */
+
+#include "fdos_env.h"
+#include "../shared/fdos/fdos_abi.h"
+#include "../shared/fdos/fdos_vmm.h"
+#include "../shared/fdos/fdos_pvclock.h"
+#include "../arch/x86/fd_x86_mmu.h"
+#include <unistd.h>
+
+/* fdos_env_tss sets up a Task State Segment with an I/O permission
+   bitmap that allows ring 3 access to all I/O ports. */
+
+static void
+fdos_env_tss( fdos_env_t * env ) {
+  ulong tss_kern_gaddr = fd_wksp_alloc( env->wksp_kern_heap, 16UL, FD_X86_TSS64_FULL_SZ, 1UL );
+  FD_TEST( tss_kern_gaddr );
+
+  fd_x86_tss64_t * tss_kern = fd_wksp_laddr_fast( env->wksp_kern_heap, tss_kern_gaddr );
+
+  /* Zero the entire region: TSS header + IOPB (0=allow all ports) */
+  memset( tss_kern, 0, FD_X86_TSS64_FULL_SZ );
+
+  tss_kern->rsp0       = env->stack_kern_top_gvaddr;
+  tss_kern->iomap_base = (ushort)sizeof(fd_x86_tss64_t);
+  tss_kern->ist1       = env->stack_int_top_gvaddr;
+
+  /* Trailing 0xFF byte terminates the I/O permission bitmap */
+  ((uchar *)tss_kern)[ sizeof(fd_x86_tss64_t) + FD_X86_TSS64_IOPB_SZ ] = 0xFF;
+
+  env->tss_kern_gvaddr = FDOS_GVADDR_KERN_HEAP + tss_kern_gaddr;
+}
+
+/* fdos_env_gdt sets up the global descriptor table */
+
+static void
+fdos_env_gdt( fdos_env_t * env ) {
+
+  ulong gdt_gaddr = fd_wksp_alloc( env->wksp_kern_heap, 16UL, FDOS_GDT_CNT*sizeof(fd_x86_gdt_t), 1UL );
+  FD_TEST( gdt_gaddr );
+  env->gdt_gvaddr = FDOS_GVADDR_KERN_HEAP + gdt_gaddr;
+  fd_x86_gdt_t * gdt = fd_wksp_laddr_fast( env->wksp_kern_heap, gdt_gaddr );
+  gdt[ FDOS_GDT_IDX_NULL ] = (fd_x86_gdt_t) {0};
+  gdt[ FDOS_GDT_IDX_K32_CS ] = (fd_x86_gdt_t) {0};
+  gdt[ FDOS_GDT_IDX_KERN_CS ] = (fd_x86_gdt_t) {
+    .limit0 = 0xffff,
+    .base0  = 0,
+    .base1  = 0,
+    .type   = 11,
+    .s      = 1,
+    .dpl    = 0,
+    .p      = 1,
+    .limit1 = 15,
+    .avl    = 0,
+    .l      = 1,
+    .d      = 0,
+    .g      = 1,
+    .base2  = 0
+  };
+  gdt[ FDOS_GDT_IDX_KERN_DS ] = (fd_x86_gdt_t) {
+    .limit0 = 0xffff,
+    .base0  = 0,
+    .base1  = 0,
+    .type   = 3,
+    .s      = 1,
+    .dpl    = 0,
+    .p      = 1,
+    .limit1 = 15,
+    .avl    = 0,
+    .l      = 0,
+    .d      = 1,
+    .g      = 1,
+    .base2  = 0
+  };
+  gdt[ FDOS_GDT_IDX_U32_CODE ] = (fd_x86_gdt_t) {0};
+  gdt[ FDOS_GDT_IDX_USER_CS ] = (fd_x86_gdt_t) {
+    .limit0 = 0xffff,
+    .base0  = 0,
+    .base1  = 0,
+    .type   = 11,
+    .s      = 1,
+    .dpl    = 3,
+    .p      = 1,
+    .limit1 = 15,
+    .avl    = 0,
+    .l      = 1,
+    .d      = 0,
+    .g      = 1,
+    .base2  = 0
+  };
+  gdt[ FDOS_GDT_IDX_USER_DS ] = (fd_x86_gdt_t) {
+    .limit0 = 0xffff,
+    .base0  = 0,
+    .base1  = 0,
+    .type   = 3,
+    .s      = 1,
+    .dpl    = 3,
+    .p      = 1,
+    .limit1 = 15,
+    .avl    = 0,
+    .l      = 0,
+    .d      = 1,
+    .g      = 1,
+    .base2  = 0
+  };
+  /* TSS */
+  ulong tss_base  = env->tss_kern_gvaddr;
+  uint  tss_limit = (uint)FD_X86_TSS64_FULL_SZ - 1U;
+  gdt[ FDOS_GDT_IDX_TSS ] = (fd_x86_gdt_t) {
+    .limit0 = tss_limit & 0xffffUL,
+    .base0  = (ushort)( tss_base & 0xffffUL ),
+    .base1  = (tss_base>>16) & 0xffUL,
+    .type   = 11,
+    .s      = 0,
+    .dpl    = 0,
+    .p      = 1,
+    .limit1 = 0,
+    .avl    = 0,
+    .l      = 0,
+    .d      = 0,
+    .g      = 0,
+    .base2  = 0
+  };
+  gdt[ FDOS_GDT_IDX_TSS_HIGH ] = (fd_x86_gdt_t) {
+    .base3    = (uint)( tss_base>>32 ),
+    .reserved = 0
+  };
+}
+
+/* fdos_env_idt sets up the interrupt descriptor table */
+
+static void
+fdos_env_idt( fdos_env_t * env ) {
+  /* IDT */
+  ulong               idt_gaddr  = fd_wksp_alloc( env->wksp_kern_heap, 16UL, 256*sizeof(fd_x86_idt_gate_t), 1UL );
+  FD_TEST( idt_gaddr );
+  ulong               idt_gvaddr = FDOS_GVADDR_KERN_HEAP + idt_gaddr;
+  fd_x86_idt_gate_t * idt        = fd_wksp_laddr_fast( env->wksp_kern_heap, idt_gaddr );
+  for( ulong i=0UL; i<256UL; i++ ) {
+    ulong gvaddr = env->text.gvaddr + i;
+    idt[ i ] = (fd_x86_idt_gate_t) {
+      .offset_low   = (ushort)( gvaddr & 0xffff ),
+      .selector     = 0x08, /* ring 0, GDT, entry 1 (code) */
+      .ist          = 0,
+      .type_attr    = 0x8e, /* interrupt gate, ring 0, present */
+      .offset_mid   = (ushort)((gvaddr >> 16) & 0xffff),
+      .offset_high  = (uint)((gvaddr >> 32) & 0xffffffff),
+      .reserved     = 0
+    };
+  }
+  env->idt_gvaddr = idt_gvaddr;
+  env->idt        = idt;
+}
+
+/* fdos_env_shared sets up interop shared data structures between the
+   host and the guest kernel. */
+
+static void
+fdos_env_shared( fdos_env_t * env ) {
+  /* Entry args */
+  ulong entry_args_gaddr = fd_wksp_alloc( env->wksp_kern_heap, alignof(fdos_kern_args_t), sizeof(fdos_kern_args_t), 1UL );
+  FD_TEST( entry_args_gaddr );
+  env->entry_args_gvaddr = FDOS_GVADDR_KERN_HEAP + entry_args_gaddr;
+  env->entry_args        = fd_wksp_laddr_fast( env->wksp_kern_heap, entry_args_gaddr );
+  memset( env->entry_args, 0, sizeof(fdos_kern_args_t) );
+  fdos_kern_args_t * entry_args = env->entry_args;
+
+  ulong rsp; __asm__ ( "mov %%rsp, %0" : "=r"(rsp) );
+  entry_args->stack_user_top_gvaddr = rsp;
+  entry_args->ring3_entry_gvaddr    = (ulong)0UL; /* TODO user entrypoint */
+}
+
+/* fdos_env_ring0_setup sets up various dynamic x86 data structures and
+   hypervisor interop logic */
+
+static void
+fdos_env_ring0_setup( fdos_env_t * env ) {
+  fdos_env_tss( env );
+  fdos_env_gdt( env );
+  if( !env->fred ) {
+    fdos_env_idt( env );
+  }
+  fdos_env_shared( env );
+}
+
+static void
+fdos_env_clock_setup( fdos_env_t * env ) {
+  ulong pvclock_gaddr = fd_wksp_alloc( env->wksp_kern_heap, FD_SHMEM_NORMAL_PAGE_SZ, fd_ulong_align_up( sizeof(fd_pvclock_t), FD_SHMEM_NORMAL_PAGE_SZ ), 1UL );
+  FD_TEST( pvclock_gaddr );
+  fd_pvclock_t * pvclock = fd_wksp_laddr_fast( env->wksp_kern_heap, pvclock_gaddr );
+  memset( pvclock, 0, sizeof(fd_pvclock_t) );
+  env->pvclock             = pvclock;
+  env->pvclock_gpaddr      = FDOS_GPADDR_KERN_HEAP + pvclock_gaddr;
+  env->pvclock_kern_gvaddr = FDOS_GVADDR_KERN_HEAP + pvclock_gaddr;
+  env->pvclock_user_gvaddr = FDOS_GVADDR_USER_GVCLOCK;
+  env->entry_args->pvclock_gvaddr = env->pvclock_kern_gvaddr;
+
+  fdos_vmm_map_range(
+      env->pml4,
+      FDOS_GVADDR_USER_GVCLOCK,
+      env->pvclock_gpaddr,
+      FD_SHMEM_NORMAL_PAGE_SZ,
+      FD_X86_PT_G|FD_X86_PT_US|FD_X86_PT_XD,
+      env->vmm_alloc
+  );
+}
+
+static void
+phys_map_range( fdos_env_t * env,
+                uint         slot,
+                ulong        gpaddr,
+                ulong        haddr,
+                ulong        sz,
+                _Bool        rw ) {
+  FD_TEST( slot<FDOS_PIDX_MAX );
+  FD_TEST( gpaddr<=UINT_MAX && sz<=UINT_MAX && gpaddr+sz<=UINT_MAX );
+  env->phys[ slot ] = (fdos_phys_t) {
+    .gpaddr0 = (uint)( gpaddr            )&INT_MAX,
+    .gpaddr1 = (uint)( gpaddr + (uint)sz )&INT_MAX,
+    .haddr   = haddr,
+    .rw      = rw
+  };
+}
+
+static void
+phys_map_wksp( fdos_env_t * env,
+               uint         slot,
+               ulong        gpaddr,
+               fd_wksp_t *  wksp,
+               _Bool        rw ) {
+  FD_TEST( slot<FDOS_PIDX_MAX );
+  fd_shmem_join_info_t info[1];
+  FD_TEST( 0==fd_shmem_join_query_by_join( wksp, info ) );
+  phys_map_range( env, slot, gpaddr, (ulong)wksp, info->page_sz * info->page_cnt, rw );
+}
+
+fdos_env_t *
+fdos_env_create( fdos_env_t *  env,
+                 uchar const * kern_bin,
+                 ulong         kern_bin_sz ) {
+  ulong guest_cpu = fd_log_cpu_id();
+  ulong part_max  = 61UL; /* 4096 headroom */
+
+  /* Allocate guest physical memory regions */
+  fd_wksp_t * wksp_kern_heap  = fd_wksp_new_anonymous( FD_SHMEM_NORMAL_PAGE_SZ, 1024UL, guest_cpu, "fdos_kern_heap",  part_max ); FD_TEST( wksp_kern_heap  );
+  fd_wksp_t * wksp_kern_data  = fd_wksp_new_anonymous( FD_SHMEM_NORMAL_PAGE_SZ, 1024UL, guest_cpu, "fdos_kern_data",  part_max ); FD_TEST( wksp_kern_data  );
+  fd_wksp_t * wksp_kern_stack = fd_wksp_new_anonymous( FD_SHMEM_NORMAL_PAGE_SZ, 1024UL, guest_cpu, "fdos_kern_stack", part_max ); FD_TEST( wksp_kern_stack );
+  fd_wksp_t * wksp_user_mem   = fd_wksp_new_anonymous( FD_SHMEM_NORMAL_PAGE_SZ, 4096UL, guest_cpu, "fdos_user_mem",   part_max ); FD_TEST( wksp_user_mem   );
+
+  /* Guest kernel stack */
+  ulong stack_kern_gaddr  = fd_wksp_alloc( wksp_kern_stack, 16UL, 2*FD_SHMEM_HUGE_PAGE_SZ-FD_SHMEM_NORMAL_PAGE_SZ, 1UL );
+  FD_TEST( stack_kern_gaddr );
+
+  *env = (fdos_env_t) {
+    .wksp_kern_heap   = wksp_kern_heap,
+    .wksp_kern_data   = wksp_kern_data,
+    .wksp_kern_stack  = wksp_kern_stack,
+    .wksp_user_mem    = wksp_user_mem,
+
+    .stack_kern_top_gvaddr = FDOS_GVADDR_KERN_STACK + FDOS_KERN_STACK_SZ - 8192,
+    .stack_kern_sz         = FDOS_KERN_STACK_SZ,
+    .stack_int_top_gvaddr  = FDOS_GVADDR_KERN_STACK + 4096,
+    .stack_int_sz          = 4096,
+  };
+
+  /* Load kernel image into memory */
+  fdos_env_img_load( env, kern_bin, kern_bin_sz );
+
+  /* Set up additional virtual memory mappings */
+  ulong * pml4 = env->pml4 = (ulong *)env->vmm_alloc->haddr;
+  fdos_vmm_map_range(
+      pml4,
+      FDOS_GVADDR_KERN_HEAP,
+      FDOS_GPADDR_KERN_HEAP,
+      1024*FD_SHMEM_NORMAL_PAGE_SZ,
+      FD_X86_PT_G|FD_X86_PT_RW|FD_X86_PT_XD,
+      env->vmm_alloc
+  );
+  fdos_vmm_map_range(
+      pml4,
+      FDOS_GVADDR_KERN_STACK,
+      FDOS_GPADDR_KERN_STACK,
+      1024*FD_SHMEM_NORMAL_PAGE_SZ,
+      FD_X86_PT_G|FD_X86_PT_RW|FD_X86_PT_XD,
+      env->vmm_alloc
+  );
+
+  /* Set up kernel data structures */
+  fdos_env_ring0_setup( env );
+  fdos_env_clock_setup( env );
+
+  /* Set up physical memory mappings */
+  phys_map_wksp ( env, FDOS_PIDX_KERN_HEAP,   FDOS_GPADDR_KERN_HEAP,  env->wksp_kern_heap,               1 );
+  phys_map_wksp ( env, FDOS_PIDX_KERN_STACK,  FDOS_GPADDR_KERN_STACK, env->wksp_kern_stack,              1 );
+  phys_map_range( env, FDOS_PIDX_KERN_TEXT,   env->text.gpaddr,       env->text.haddr,   env->text.sz,   0 );
+  phys_map_range( env, FDOS_PIDX_KERN_RODATA, env->rodata.gpaddr,     env->rodata.haddr, env->rodata.sz, 0 );
+  phys_map_range( env, FDOS_PIDX_KERN_DATA,   env->data.gpaddr,       env->data.haddr,   env->data.sz,   1 );
+  phys_map_wksp ( env, FDOS_PIDX_USER_MEM,    FDOS_GPADDR_USER_MEM,   env->wksp_user_mem,                1 );
+  static uchar dummy[ 4096 ] __attribute__((aligned(4096)));
+  phys_map_range( env, FDOS_PIDX_SHMEM,       FDOS_GPADDR_SHMEM,      (ulong)dummy, sizeof(dummy),       1 );
+
+  /* Exercise glibc code paths that open files, to prevent attempts to
+     open those files while in KVM. */
+  char wallclock[ FD_LOG_WALLCLOCK_CSTR_BUF_SZ ];
+  fd_log_wallclock_cstr( 0L, wallclock );
+
+  // fdos_migrate_self( env );
+
+  env->entry_args->vmm_alloc       = *env->vmm_alloc;
+  /* Translate vmm_alloc to kernel heap address */
+  env->entry_args->vmm_alloc.haddr = FDOS_GVADDR_KERN_HEAP + fd_wksp_gaddr_fast( env->wksp_kern_heap, (void *)env->entry_args->vmm_alloc.haddr );
+
+  return env;
+}
+
+void
+fdos_env_destroy( fdos_env_t * env ) {
+  fd_wksp_delete_anonymous( env->wksp_kern_heap  );
+  fd_wksp_delete_anonymous( env->wksp_kern_data  );
+  fd_wksp_delete_anonymous( env->wksp_kern_stack );
+  fd_wksp_delete_anonymous( env->wksp_user_mem   );
+  memset( env, 0, sizeof(fdos_env_t) );
+}
+
+uchar *
+fdos_gpaddr_to_haddr( ulong             gpaddr,
+                      ulong             sz,
+                      fdos_phys_t const phys[ FDOS_PIDX_MAX ] ) {
+  ulong phys_idx;
+  for( phys_idx=0UL; phys_idx<FDOS_PIDX_MAX; phys_idx++ ) {
+    if( !!( gpaddr>=phys[ phys_idx ].gpaddr0 ) &
+        !!( gpaddr< phys[ phys_idx ].gpaddr1 ) ) {
+      break;
+    }
+  }
+  if( phys_idx==FDOS_PIDX_MAX ) return NULL;
+
+  ulong off = gpaddr - phys[ phys_idx ].gpaddr0;
+  if( FD_UNLIKELY( gpaddr+sz > phys[ phys_idx ].gpaddr1 ) ) {
+    return NULL;
+  }
+  return (uchar *)phys[ phys_idx ].haddr + off;
+}
