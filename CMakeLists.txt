@@ -8,6 +8,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 include(CheckCSourceCompiles)
 find_package(Threads REQUIRED)
+find_package(LLVM CONFIG QUIET)
 
 set(FDOS_BARE OFF)
 
