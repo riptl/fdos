@@ -9,7 +9,6 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include(CheckCSourceCompiles)
 find_package(Threads REQUIRED)
 
-option(FDOS_X86_FRED "Use x86 FRED context switching" OFF)
 set(FDOS_BARE OFF)
 
 include(CTest)
@@ -48,7 +47,6 @@ ExternalProject_Add(fdos_guest
   CMAKE_ARGS
     -DCMAKE_TOOLCHAIN_FILE=${CMAKE_CURRENT_SOURCE_DIR}/guest/fdos_x86.cmake
     -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-    -DFDOS_X86_FRED=${FDOS_X86_FRED}
     -DPICOLIBC_INSTALL_DIR=${PICOLIBC_INSTALL_DIR}
     -DBUILD_TESTING=OFF
   BUILD_ALWAYS TRUE
