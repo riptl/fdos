@@ -28,9 +28,14 @@ add_library(fdos_kern STATIC
   fdos_kern_io.c
   fdos_kern_log.c
 )
-set_target_properties(fdos_kern PROPERTIES LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/fdos_x86.ld")
 target_link_libraries(fdos_kern PUBLIC fd_util)
 
-add_executable(kern_hlt kern_hlt.c)
-target_link_libraries(kern_hlt PRIVATE fdos_kern)
-install(TARGETS kern_hlt DESTINATION bin)
+function(add_fdos_kern name)
+  add_executable(${name} ${name}.c)
+  target_link_libraries(${name} PRIVATE fdos_kern)
+  set_target_properties(${name} PROPERTIES LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/fdos_x86.ld")
+  install(TARGETS ${name} DESTINATION bin)
+endfunction()
+
+add_fdos_kern(kern_hlt)
+add_fdos_kern(kern_spin)

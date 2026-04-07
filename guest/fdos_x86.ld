@@ -20,6 +20,7 @@ SECTIONS
   .rodata : AT(ADDR(.rodata) - 0xffffffff80000000) {
     *(.rodata)
     *(.rodata.*)
+    BYTE(0);
     . = ALIGN(4K);
   } :ROM
 
