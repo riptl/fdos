@@ -4,6 +4,7 @@
 #include "../shared/fdos/fdos_abi.h"
 #include "../arch/x86/fd_x86_apic.h"
 #include "../arch/x86/fd_x86_msr.h"
+#include "../arch/x86/fd_x86_pmc.h"
 #include <stddef.h>
 #include <errno.h>
 #include <sys/ioctl.h>
@@ -312,10 +313,68 @@ fdos_kvm_init_apic( fdos_env_t * env,
 
   uint lapic_svr = FD_LOAD( uint, &lapic.regs[ FD_X86_APIC_OFF_SVR ] );
   FD_STORE( uint, &lapic.regs[ FD_X86_APIC_OFF_SVR     ], lapic_svr | 0x1ff );
-  FD_STORE( uint, &lapic.regs[ FD_X86_APIC_OFF_LVT_PMC ], 0xfe );
-  FD_STORE( uint, &lapic.regs[ FD_X86_APIC_OFF_TPR     ], 0x00 );
+  FD_STORE( uint, &lapic.regs[ FD_X86_APIC_OFF_LVT_PMC ], 0x400 ); /* NMI, unmasked */
+  FD_STORE( uint, &lapic.regs[ FD_X86_APIC_OFF_TPR     ],  0x00 );
 
   if( FD_UNLIKELY( ioctl( vcpu_fd, KVM_SET_LAPIC, &lapic )<0 ) ) {
     FD_LOG_ERR(( "KVM_SET_LAPIC failed (%i-%s)", errno, fd_io_strerror( errno ) ));
+  }
+}
+
+void
+fdos_kvm_init_pmc( fdos_env_t * env,
+                   int          vm_fd,
+                   int          vcpu_fd ) {
+
+  struct kvm_enable_cap cap = {
+    .cap     = KVM_CAP_PMU_CAPABILITY,
+    .args[0] = 0
+  };
+  if( FD_UNLIKELY( ioctl( vm_fd, KVM_ENABLE_CAP, &cap )<0 ) ) {
+    FD_LOG_WARNING(( "KVM_ENABLE_CAP(KVM_CAP_PMU_CAPABILITY) failed (%i-%s)", errno, fd_io_strerror( errno ) ));
+  }
+
+# define MSR_CNT 3
+  __attribute__((aligned(alignof(struct kvm_msrs))))
+  uchar msrs_buf[ sizeof(struct kvm_msrs) + MSR_CNT*sizeof(struct kvm_msr_entry) ];
+
+  struct kvm_msrs * msr_req = fd_type_pun( msrs_buf );
+  msr_req->nmsrs = MSR_CNT;
+  ulong i = 0UL;
+
+  /* Intel:
+  msr_req->entries[ i   ].index = FD_X86_MSR_PERFEVTSEL0;
+  msr_req->entries[ i++ ].data  =
+      (0x00C0) |
+      FD_X86_PMC_INT |
+      FD_X86_PMC_EN  |
+      FD_X86_PMC_OS;
+
+  msr_req->entries[ i   ].index = FD_X86_MSR_PMC0;
+  msr_req->entries[ i++ ].data  = (ulong)(-(long)4L);
+
+  msr_req->entries[ i   ].index = FD_X86_MSR_PERF_GLOBAL_CTRL;
+  msr_req->entries[ i++ ].data  = 1UL;
+  */
+
+  /* AMD */
+  msr_req->entries[ i   ].index = FD_X86_MSR_F15H_PERF_CTRL0;
+  msr_req->entries[ i++ ].data  =
+      (0x0076) |
+      FD_X86_PMC_INT |
+      FD_X86_PMC_EN  |
+      FD_X86_PMC_OS;
+
+  msr_req->entries[ i   ].index = FD_X86_MSR_F15H_PERF_CTR0;
+  msr_req->entries[ i++ ].data  = (ulong)(-(long)100000L);
+
+  msr_req->entries[ i   ].index = FD_X86_MSR_AMD64_PERF_GLOBAL_CTRL;
+  msr_req->entries[ i++ ].data  = 1UL; /* enable PMC0 */
+
+  FD_TEST( i<=MSR_CNT );
+# undef MSR_CNT
+
+  if( FD_UNLIKELY( ioctl( vcpu_fd, KVM_SET_MSRS, msr_req )<0 ) ) {
+    FD_LOG_ERR(( "KVM_SET_MSRS failed (%i-%s)", errno, fd_io_strerror( errno ) ));
   }
 }

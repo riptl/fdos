@@ -14,6 +14,11 @@ fdos_kvm_init_apic( fdos_env_t * env,
                     int          vm_fd,
                     int          vcpu_id );
 
+void
+fdos_kvm_init_pmc( fdos_env_t * env,
+                   int          vm_fd,
+                   int          vcpu_id );
+
 int
 fdos_kvm_run( fdos_env_t *     kern,
               struct kvm_run * kvm_run,

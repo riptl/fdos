@@ -55,3 +55,37 @@
 #define FD_X86_XCR0_OPMASK    (1U<<5)
 #define FD_X86_XCR0_ZMM_HI256 (1U<<6)
 #define FD_X86_XCR0_HI16_ZMM  (1U<<7)
+
+#define FD_X86_MSR_PMC0                           0x000000c1
+#define FD_X86_MSR_PERFEVTSEL0                    0x00000186
+#define FD_X86_MSR_PERFEVTSEL1                    0x00000187
+#define FD_X86_MSR_PERFEVTSEL2                    0x00000188
+#define FD_X86_MSR_PERFEVTSEL3                    0x00000189
+#define FD_X86_MSR_DEBUGCTL                       0x000001d9
+#define FD_X86_MSR_FIXED_CTR0                     0x00000309
+#define FD_X86_MSR_FIXED_CTR1                     0x0000030a
+#define FD_X86_MSR_FIXED_CTR2                     0x0000030b
+#define FD_X86_MSR_FIXED_CTR3                     0x0000030c
+#define FD_X86_MSR_FIXED_CTR_CTRL                 0x0000038d
+#define FD_X86_MSR_PERF_GLOBAL_STATUS             0x0000038e
+#define FD_X86_MSR_PERF_GLOBAL_CTRL               0x0000038f
+#define FD_X86_MSR_PERF_GLOBAL_OVF_CTRL           0x00000390
+#define FD_X86_MSR_PERF_GLOBAL_STATUS_RESET       0x00000390
+#define FD_X86_MSR_PERF_GLOBAL_STATUS_SET         0x00000391
+#define FD_X86_MSR_PERF_GLOBAL_INUSE              0x00000392
+#define FD_X86_MSR_F15H_PERF_CTRL0                0xc0010200 /* AMD Zen PMC */
+#define FD_X86_MSR_F15H_PERF_CTR0                 0xc0010201
+#define FD_X86_MSR_F15H_PERF_CTRL1                0xc0010202
+#define FD_X86_MSR_F15H_PERF_CTR1                 0xc0010203
+#define FD_X86_MSR_F15H_PERF_CTRL2                0xc0010204
+#define FD_X86_MSR_F15H_PERF_CTR2                 0xc0010205
+#define FD_X86_MSR_F15H_PERF_CTRL3                0xc0010206
+#define FD_X86_MSR_F15H_PERF_CTR3                 0xc0010207
+#define FD_X86_MSR_F15H_PERF_CTRL4                0xc0010208
+#define FD_X86_MSR_F15H_PERF_CTR4                 0xc0010209
+#define FD_X86_MSR_F15H_PERF_CTRL5                0xc001020a
+#define FD_X86_MSR_F15H_PERF_CTR5                 0xc001020b
+#define FD_X86_MSR_AMD64_PERF_GLOBAL_STATUS       0xc0000300 /* AMD Zen PMC config */
+#define FD_X86_MSR_AMD64_PERF_GLOBAL_CTRL         0xc0000301
+#define FD_X86_MSR_AMD64_PERF_GLOBAL_STATUS_CLR   0xc0000302
+#define FD_X86_MSR_AMD64_PERF_GLOBAL_STATUS_SET   0xc0000303
