@@ -143,10 +143,6 @@ vcpu_sregs_set( fdos_env_t * env,
   if( FD_UNLIKELY( ioctl( vcpu_fd, KVM_SET_SREGS, sregs )<0 ) ) {
     FD_LOG_ERR(( "KVM_SET_SREGS failed (%i-%s)", errno, fd_io_strerror( errno ) ));
   }
-
-  if( FD_UNLIKELY( ioctl( vcpu_fd, KVM_SET_SREGS, sregs )<0 ) ) {
-    FD_LOG_ERR(( "KVM_SET_SREGS failed (%i-%s)", errno, fd_io_strerror( errno ) ));
-  }
 }
 
 static void

@@ -1,10 +1,94 @@
-/* Context switching (IDT mode) */
-
 #include "../shared/fdos/fdos_abi.h"
+#include "../shared/fdos/fdos_pvclock.h"
+#include "../shared/util/fd_util.h"
+#include "../arch/x86/fd_x86_msr.h"
+
+static struct {
+  uint running    : 1;
+  uint nmi_active : 1;
+} volatile flags;
+
+static ulong nmi_cnt;
+
+static void
+arm_pmc( void ) {
+  ulong msr_val = (ulong)-100000L;
+  uint  val_hi  = (uint)( msr_val >> 32 );
+  uint  val_lo  = (uint)( msr_val & 0xffffffffUL );
+  __asm__ volatile (
+    "movl %0, %%ecx;\n"
+    "movl %1, %%eax;\n"
+    "movl %2, %%edx;\n"
+    "wrmsr;\n"
+    :
+    : "i"(FD_X86_MSR_F15H_PERF_CTR0),
+      "r"(val_lo),
+      "r"(val_hi)
+    : "eax", "ecx", "edx"
+  );
+}
+
+void
+nmi_handler1( void ) {
+  if( FD_UNLIKELY( flags.nmi_active ) ) __asm__ volatile("ud2");
+  flags.nmi_active = 1;
+  if( FD_UNLIKELY( !flags.running ) ) return;
+  nmi_cnt++;
+  // /* Clear PMC0 overflow status, then reload counter */
+  // __asm__ volatile (
+  //   "movl %0, %%ecx;\n"
+  //   "movl $1, %%eax;\n"
+  //   "xorl %%edx, %%edx;\n"
+  //   "wrmsr;\n"
+  //   :
+  //   : "i"(FD_X86_MSR_AMD64_PERF_GLOBAL_STATUS_CLR)
+  //   : "eax", "ecx", "edx"
+  // );
+  arm_pmc();
+  FD_COMPILER_MFENCE();
+  flags.nmi_active = 0;
+}
+
+__attribute__((naked))
+void
+nmi_handler( void ) {
+  __asm__ volatile (
+    /* save all GPRs */
+    "push %rdi;\n"
+    "push %rsi;\n"
+    "push %rbp;\n"
+    "push %rdx;\n"
+    "push %rcx;\n"
+    "push %rax;\n"
+    "push %r8;\n"
+    "push %r9;\n"
+    "push %r10;\n"
+    "push %r11;\n"
+    "push %r12;\n"
+    "push %r13;\n"
+    "push %r14;\n"
+    "push %r15;\n"
+    "call nmi_handler1;\n"
+    "pop %r15;\n"
+    "pop %r14;\n"
+    "pop %r13;\n"
+    "pop %r12;\n"
+    "pop %r11;\n"
+    "pop %r10;\n"
+    "pop %r9;\n"
+    "pop %r8;\n"
+    "pop %rax;\n"
+    "pop %rcx;\n"
+    "pop %rdx;\n"
+    "pop %rbp;\n"
+    "pop %rsi;\n"
+    "pop %rdi;\n"
+    "ret;\n"
+  );
+}
 
 __attribute__((aligned(256)))
 __attribute__((naked))
-__attribute__((weak))
 void
 fdos_interrupt_handlers( void ) {
 # define SNIP               \
@@ -13,7 +97,14 @@ fdos_interrupt_handlers( void ) {
     "outsl;\n"              \
     ".p2align 4;\n"
   __asm__ volatile (
-    /* 0x00 */ SNIP /* 0x01 */ SNIP /* 0x02 */ SNIP /* 0x03 */ SNIP
+    /* 0x00 */ SNIP /* 0x01 */ SNIP
+
+    /* 0x02 (NMI): ignore */
+    "call nmi_handler;\n"
+    "iretq;\n"
+    ".p2align 4;\n"
+
+    /* 0x03 */ SNIP
     /* 0x04 */ SNIP /* 0x05 */ SNIP /* 0x06 */ SNIP /* 0x07 */ SNIP
     /* 0x08 */ SNIP /* 0x09 */ SNIP /* 0x0a */ SNIP /* 0x0b */ SNIP
     /* 0x0c */ SNIP /* 0x0d */ SNIP /* 0x0e */ SNIP /* 0x0f */ SNIP
@@ -81,33 +172,24 @@ fdos_interrupt_handlers( void ) {
 # undef SNIP
 }
 
-__attribute__((naked))
-void
-fdos_ring3_enter_idt( ulong user_stack_top_gpaddr, /* rdi */
-                      ulong function ) {           /* rsi */
-  __asm__ volatile (
-    "pushq $0x2b;\n" /* segment 5 */
-    "pushq %rdi;\n"  /* user stack */
-    "pushq $0x33;\n" /* segment 6 */
-    "pushq %rsi;\n"
-    "lretq;\n"
-  );
-}
+static fd_pvclock_t * g_pvclock;
 
-__attribute__((naked))
 __attribute__((noreturn))
 void
-fdos_kern_entry_idt( fdos_kern_args_t * args ) {
-  /* On entry, our GDT, code, and data segment selectors were set up by
-     the host.  However, we will need to far return to update the
-     descriptor cache.  Otherwise, we would run in the KVM guest default
-     state. */
-
-  __asm__ volatile (
-    "pushq $0x0;\n"  /* align stack */
-    "pushq $0x10;\n" /* FDOS_GDT_IDX_KERN_CS */
-    "movabsq $fdos_kern_main, %rax;\n" /* jump target */
-    "pushq %rax;\n"
-    "lretq;\n"       /* far return (refresh segment selector cache) */
-  );
+fdos_kern_main( fdos_kern_args_t * args ) {
+  g_pvclock = (fd_pvclock_t *)args->pvclock_gvaddr;
+  fd_log_thread_set( "kvm0" );
+  fd_log_wallclock_set( fd_pvclock_now, g_pvclock );
+  fd_log_colorize_set( 1 );
+  long dt = -fd_tickcount();
+  ulong const limit = 1UL<<32UL;
+  flags.running = 1;
+  for( ulong i=0UL; i<limit; i++ ) {
+    __asm__ ( "nop" : : : "memory" );
+  }
+  dt += fd_tickcount();
+  FD_LOG_NOTICE(( "%g iterations in %g ticks", (double)limit, (double)dt ));
+  FD_LOG_NOTICE(( "%g NMIs handled", (double)nmi_cnt ));
+  FD_LOG_ERR(( "Done" ));
+  for(;;) {}
 }

@@ -176,22 +176,29 @@ maybe_handle_interrupt( fdos_env_t * env,
     FD_LOG_ERR(( "KVM_GET_REGS failed (%i-%s)", errno, fd_io_strerror( errno ) ));
   }
 
+  ulong         stack_gp = fdos_gvaddr_to_gpaddr( regs.rsp, 48UL, env->vmm_alloc );
+  uchar const * stack    = fdos_gpaddr_to_haddr ( stack_gp, 48UL, env->phys      );
+
+  ulong fault_rip = 0UL;
   switch( idx ) {
-  case 0x0d: {
-    ulong        gpaddr = fdos_gvaddr_to_gpaddr( regs.rsp, 8UL, env->vmm_alloc );
-    void const * perr   = fdos_gpaddr_to_haddr( gpaddr, 8UL, env->phys );
-    if( perr ) FD_LOG_NOTICE(( "#GP error code: %#lx", FD_LOAD( ulong, perr ) ));
+  case 0x0d: { /* general protection fault */
+    if( stack ) {
+      fault_rip = FD_LOAD( ulong, stack+8UL );
+      FD_LOG_NOTICE(( "#GP error code: %#lx", FD_LOAD( ulong, stack ) ));
+    }
     break;
   }
-  case 0x0e: {
+  case 0x0e: { /* page fault */
+    if( stack ) fault_rip = FD_LOAD( ulong, stack+8UL );
     struct kvm_sregs sregs;
     if( FD_UNLIKELY( ioctl( vcpu_fd, KVM_GET_SREGS, &sregs )<0 ) ) {
       FD_LOG_ERR(( "KVM_GET_REGS failed (%i-%s)", errno, fd_io_strerror( errno ) ));
     }
-    FD_LOG_NOTICE(( "Page fault address: %#llx", sregs.cr2 ));
+    FD_LOG_NOTICE(( "fault_address=%llx", sregs.cr2 ));
     break;
   }
   }
+  if( fault_rip ) FD_LOG_NOTICE(( "rip=%016lx", fault_rip ));
 
   FD_LOG_NOTICE(( "Registers:\n"
                   "  rax=%016llx rbx=%016llx rcx=%016llx rdx=%016llx\n"
