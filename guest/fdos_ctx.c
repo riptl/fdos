@@ -5,7 +5,7 @@ fdos_syscall_handler( void ) {
   __asm__ volatile (
       "movabs $0xffffff80003ffff8UL, %rax\n"
       "mov %rax, %rsp\n"
-      "hlt\n" /* TODO */
+      "ud2\n" /* TODO */
   );
 }
 

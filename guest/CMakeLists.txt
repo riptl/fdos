@@ -37,5 +37,6 @@ function(add_fdos_kern name)
   install(TARGETS ${name} DESTINATION bin)
 endfunction()
 
-add_fdos_kern(kern_hlt)
+add_fdos_kern(kern_hello)
 add_fdos_kern(kern_spin)
+add_fdos_kern(kern_page_fault)

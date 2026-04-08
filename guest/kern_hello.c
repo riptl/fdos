@@ -1,6 +1,7 @@
 #include "../shared/fdos/fdos_abi.h"
 #include "../shared/fdos/fdos_pvclock.h"
 #include "../shared/util/log/fd_log.h"
+#include <immintrin.h>
 
 static fd_pvclock_t * g_pvclock;
 

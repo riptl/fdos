@@ -56,24 +56,6 @@ hypercall_write( fdos_env_t * kern,
 }
 
 static void
-fdos_hypercall_handler( fdos_env_t *     env,
-                        int              vcpu_fd,
-                        struct kvm_run * run ) {
-  if( FD_UNLIKELY( run->io.size!=4 || run->io.count!=1 ) ) {
-    FD_LOG_CRIT(( "invalid io_out hypercall (size=%u,count=%u)", run->io.size, run->io.count ));
-  }
-  uint port = run->io.port;
-  switch( port ) {
-  case FDOS_HYPERCALL_WRITE:
-    hypercall_write( env, vcpu_fd );
-    break;
-  default:
-    FD_LOG_CRIT(( "invalid hypercall port %u", port ));
-  }
-  return;
-}
-
-static void
 trace_rip( fdos_env_t *     env,
            struct kvm_run * run,
            int              vcpu_fd,
@@ -185,9 +167,9 @@ maybe_handle_interrupt( fdos_env_t * env,
                         int          vcpu_fd,
                         ulong        rip ) {
   ulong hlt0 = env->int_handler_gvaddr;
-  ulong hlt1 = hlt0 + 256;
+  ulong hlt1 = hlt0 + (256*16);
   if( FD_UNLIKELY( rip<hlt0 || rip>=hlt1 ) ) return;
-  uint idx = (uint)( rip - hlt0 );
+  uint idx = (uint)( rip - hlt0 ) / 16;
   if( idx==0x0e ) {
     struct kvm_sregs sregs;
     if( FD_UNLIKELY( ioctl( vcpu_fd, KVM_GET_SREGS, &sregs )<0 ) ) {
@@ -212,6 +194,35 @@ maybe_handle_interrupt( fdos_env_t * env,
   FD_LOG_ERR(( "Caught interrupt type %02x-%s", idx, fd_x86_interrupt_cstr( idx ) ));
 }
 
+static int
+fdos_hypercall_handler( fdos_env_t *     env,
+                        int              vcpu_fd,
+                        struct kvm_run * run ) {
+  if( FD_UNLIKELY( run->io.size!=4 || run->io.count!=1 ) ) {
+    FD_LOG_CRIT(( "invalid io_out hypercall (size=%u,count=%u)", run->io.size, run->io.count ));
+  }
+  uint port = run->io.port;
+  switch( port ) {
+  case FDOS_HYPERCALL_WRITE:
+    hypercall_write( env, vcpu_fd );
+    break;
+  case FDOS_HYPERCALL_EXIT: {
+    struct kvm_regs regs;
+    if( FD_UNLIKELY( ioctl( vcpu_fd, KVM_GET_REGS, &regs )<0 ) ) {
+      FD_LOG_ERR(( "KVM_GET_REGS failed (%i-%s)", errno, fd_io_strerror( errno ) ));
+    }
+    ulong rip = regs.rip - 1UL; /* why is this off by one? */
+    if( env->fred ) maybe_handle_fred_event( env, vcpu_fd, rip );
+    else            maybe_handle_interrupt ( env, vcpu_fd, rip );
+    FD_LOG_NOTICE(( "KVM guest requested EXIT" ));
+    return 1;
+  }
+  default:
+    FD_LOG_CRIT(( "invalid hypercall port %u", port ));
+  }
+  return 0;
+}
+
 int
 fdos_kvm_run( fdos_env_t *     kern,
               struct kvm_run * kvm_run,
@@ -232,7 +243,8 @@ fdos_kvm_run( fdos_env_t *     kern,
   switch( kvm_run->exit_reason ) {
   case KVM_EXIT_IO: /* hypercall */
     if( kvm_run->io.direction==KVM_EXIT_IO_OUT ) {
-      fdos_hypercall_handler( kern, vcpu_fd, kvm_run );
+      int res = fdos_hypercall_handler( kern, vcpu_fd, kvm_run );
+      if( FD_UNLIKELY( res!=0 ) ) return 1;
     } else {
       FD_LOG_ERR(( "Unexpected INPUT hypercall" ));
     }
@@ -243,14 +255,7 @@ fdos_kvm_run( fdos_env_t *     kern,
     return 0;
   }
   case KVM_EXIT_HLT: {
-    struct kvm_regs regs;
-    if( FD_UNLIKELY( ioctl( vcpu_fd, KVM_GET_REGS, &regs )<0 ) ) {
-      FD_LOG_ERR(( "KVM_GET_REGS failed (%i-%s)", errno, fd_io_strerror( errno ) ));
-    }
-    ulong rip = regs.rip - 1UL; /* why is this off by one? */
-    if( kern->fred ) maybe_handle_fred_event( kern, vcpu_fd, rip );
-    else             maybe_handle_interrupt ( kern, vcpu_fd, rip );
-    FD_LOG_NOTICE(( "KVM guest issued HLT instruction" ));
+    FD_LOG_WARNING(( "Unhandled HLT instruction (no LAPIC?)" ));
     return 1;
   }
   case KVM_EXIT_FAIL_ENTRY:

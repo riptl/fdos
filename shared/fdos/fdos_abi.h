@@ -52,3 +52,4 @@ typedef struct fdos_kern_args fdos_kern_args_t;
 /* FDOS_HYPERCALL_* give hypercall IDs. */
 
 #define FDOS_HYPERCALL_WRITE 1
+#define FDOS_HYPERCALL_EXIT  2

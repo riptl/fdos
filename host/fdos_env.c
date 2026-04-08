@@ -143,10 +143,10 @@ fdos_env_idt( fdos_env_t * env ) {
   ulong               idt_gvaddr = FDOS_GVADDR_KERN_HEAP + idt_gaddr;
   fd_x86_idt_gate_t * idt        = fd_wksp_laddr_fast( env->wksp_kern_heap, idt_gaddr );
   for( ulong i=0UL; i<256UL; i++ ) {
-    ulong gvaddr = env->text.gvaddr + i;
+    ulong gvaddr = env->int_handler_gvaddr + i*16;
     idt[ i ] = (fd_x86_idt_gate_t) {
       .offset_low   = (ushort)( gvaddr & 0xffff ),
-      .selector     = 0x08, /* ring 0, GDT, entry 1 (code) */
+      .selector     = FDOS_GDT_IDX_KERN_CS*8, /* ring 0 */
       .ist          = 0,
       .type_attr    = 0x8e, /* interrupt gate, ring 0, present */
       .offset_mid   = (ushort)((gvaddr >> 16) & 0xffff),

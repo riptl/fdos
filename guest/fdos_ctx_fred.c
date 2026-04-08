@@ -31,7 +31,9 @@ fdos_fred_handler( void ) {
     "je fdos_syscall_handler;\n"
     /* Not a syscall ... */
     "movq 40(%rsp), %r14;\n" /* event info (incl type) */
-    "hlt;\n"
+    "leaq 0(%rip), %rsi;\n"
+    "movl $2, %edx;\n"
+    "outsl;\n"
     // "eretu;\n"
     ".align 256;\n"
 
@@ -40,7 +42,9 @@ fdos_fred_handler( void ) {
     "movq 8(%rsp), %r13;\n"  /* rip */
     "movq 40(%rsp), %r14;\n" /* event info (incl type) */
     "movq 48(%rsp), %r15;\n" /* event data */
-    "hlt;\n"
+    "leaq 0(%rip), %rsi;\n"
+    "movl $2, %edx;\n"
+    "outsl;\n"
     // "erets;\n"
   );
 }

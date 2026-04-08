@@ -138,7 +138,7 @@ fdos_kern_img_sym_load( fdos_env_t *  env,
     } else if( 0==strcmp( name, "fdos_kern_entry_fred" ) ) {
       FD_TEST( symbol_in_section( &env->text, sym.st_value ) );
       env->entry_fred_gvaddr = sym.st_value;
-    } else if( 0==strcmp( name, "fdos_hlt_blob" ) ) {
+    } else if( 0==strcmp( name, "fdos_interrupt_handlers" ) ) {
       FD_TEST( symbol_in_section( &env->text, sym.st_value ) );
       FD_TEST( fd_ulong_is_aligned( sym.st_value, 256UL ) );
       env->int_handler_gvaddr = sym.st_value;

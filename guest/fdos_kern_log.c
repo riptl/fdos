@@ -666,7 +666,11 @@ fd_log_private_2( int          level,
                   char const * func,
                   char const * msg ) {
   fd_log_private_1( level, now, path, file_name, line, func, msg );
-  __asm__ volatile ( "hlt" );
+  __asm__ volatile (
+    "leaq 0(%rip), %rsi;\n"
+    "movl $2, %edx;\n"
+    "outsl;\n"
+  );
   __builtin_unreachable();
 }
 
