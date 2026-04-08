@@ -170,23 +170,34 @@ maybe_handle_interrupt( fdos_env_t * env,
   ulong hlt1 = hlt0 + (256*16);
   if( FD_UNLIKELY( rip<hlt0 || rip>=hlt1 ) ) return;
   uint idx = (uint)( rip - hlt0 ) / 16;
-  if( idx==0x0e ) {
-    struct kvm_sregs sregs;
-    if( FD_UNLIKELY( ioctl( vcpu_fd, KVM_GET_SREGS, &sregs )<0 ) ) {
-      FD_LOG_ERR(( "KVM_GET_REGS failed (%i-%s)", errno, fd_io_strerror( errno ) ));
-    }
-    FD_LOG_NOTICE(( "Page fault address: %#llx", sregs.cr2 ));
-  }
 
   struct kvm_regs regs;
   if( FD_UNLIKELY( ioctl( vcpu_fd, KVM_GET_REGS, &regs )<0 ) ) {
     FD_LOG_ERR(( "KVM_GET_REGS failed (%i-%s)", errno, fd_io_strerror( errno ) ));
   }
+
+  switch( idx ) {
+  case 0x0d: {
+    ulong        gpaddr = fdos_gvaddr_to_gpaddr( regs.rsp, 8UL, env->vmm_alloc );
+    void const * perr   = fdos_gpaddr_to_haddr( gpaddr, 8UL, env->phys );
+    if( perr ) FD_LOG_NOTICE(( "#GP error code: %#lx", FD_LOAD( ulong, perr ) ));
+    break;
+  }
+  case 0x0e: {
+    struct kvm_sregs sregs;
+    if( FD_UNLIKELY( ioctl( vcpu_fd, KVM_GET_SREGS, &sregs )<0 ) ) {
+      FD_LOG_ERR(( "KVM_GET_REGS failed (%i-%s)", errno, fd_io_strerror( errno ) ));
+    }
+    FD_LOG_NOTICE(( "Page fault address: %#llx", sregs.cr2 ));
+    break;
+  }
+  }
+
   FD_LOG_NOTICE(( "Registers:\n"
                   "  rax=%016llx rbx=%016llx rcx=%016llx rdx=%016llx\n"
                   "  rsi=%016llx rdi=%016llx rsp=%016llx rbp=%016llx\n"
                   "  r8 =%016llx r9 =%016llx r10=%016llx r11=%016llx\n"
-                  "  r12=%016llx r13=%016llx r14=%016llx r15=%016llx\n",
+                  "  r12=%016llx r13=%016llx r14=%016llx r15=%016llx",
                   regs.rax, regs.rbx, regs.rcx, regs.rdx,
                   regs.rsi, regs.rdi, regs.rsp, regs.rbp,
                   regs.r8,  regs.r9,  regs.r10, regs.r11,

@@ -64,7 +64,7 @@ vcpu_sregs_set( fdos_env_t * env,
   struct kvm_segment cs = {
     .base     = 0,
     .limit    = 0xffffffff,
-    .selector = 0x08, /* ring 0, GDT, entry 1 (code) */
+    .selector = FDOS_GDT_IDX_KERN_CS*8,
     .present  = 1,
     .type     = 0xb,
     .dpl      = 0,
@@ -77,7 +77,7 @@ vcpu_sregs_set( fdos_env_t * env,
   struct kvm_segment ds = {
     .base     = 0,
     .limit    = 0xffffffff,
-    .selector = 0x10, /* ring 0, GDT, entry 2 (data) */
+    .selector = FDOS_GDT_IDX_KERN_DS*8,
     .type     = 0x3,
     .present  = 1,
     .dpl      = 0,

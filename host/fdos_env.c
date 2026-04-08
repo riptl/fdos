@@ -328,7 +328,7 @@ fdos_env_destroy( fdos_env_t * env ) {
   memset( env, 0, sizeof(fdos_env_t) );
 }
 
-uchar *
+void *
 fdos_gpaddr_to_haddr( ulong             gpaddr,
                       ulong             sz,
                       fdos_phys_t const phys[ FDOS_PIDX_MAX ] ) {

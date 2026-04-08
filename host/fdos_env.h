@@ -126,7 +126,7 @@ fdos_env_create( fdos_env_t *  env,
 void
 fdos_env_destroy( fdos_env_t * env );
 
-uchar *
+void *
 fdos_gpaddr_to_haddr( ulong             gpaddr,
                       ulong             sz,
                       fdos_phys_t const phys[ FDOS_PIDX_MAX ] );
