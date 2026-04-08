@@ -69,7 +69,19 @@
 #define FD_X86_CPUID_07_1_EDX_AVX10             (1U<<19) /* AVX10 */
 #define FD_X86_CPUID_07_1_EDX_APX_F             (1U<<21) /* APX Foundation */
 
-/* https://www.sandpile.org/x86/cpuid.htm#level_8000_0001h */
+/* https://www.sandpile.org/x86/cpuid.htm#leaf_0000_001Eh */
+
+#define FD_X86_CPUID_1E_1_EAX_AMX_INT8          (1U<< 0) /* AMX-INT8 */
+#define FD_X86_CPUID_1E_1_EAX_AMX_BF16          (1U<< 1) /* AMX-BF16 */
+#define FD_X86_CPUID_1E_1_EAX_AMX_COMPLEX       (1U<< 2) /* AMX-COMPLEX */
+#define FD_X86_CPUID_1E_1_EAX_AMX_FP16          (1U<< 3) /* AMX-FP16 */
+#define FD_X86_CPUID_1E_1_EAX_AMX_FP8           (1U<< 4) /* AMX-FP8 */
+#define FD_X86_CPUID_1E_1_EAX_AMX_TRANSPOSE     (1U<< 5) /* AMX-TRANSPOSE */
+#define FD_X86_CPUID_1E_1_EAX_AMX_TF32          (1U<< 6) /* AMX-TF32 */
+#define FD_X86_CPUID_1E_1_EAX_AMX_AVX512        (1U<< 7) /* AMX-AVX512 */
+#define FD_X86_CPUID_1E_1_EAX_AMX_MOVRS         (1U<< 8) /* AMX-MOVRS */
+
+/* https://www.sandpile.org/x86/cpuid.htm#leaf_8000_0001h */
 
 #define FD_X86_CPUID_8000_01_EDX_TSC            (1U<< 4) /* TSC */
 #define FD_X86_CPUID_8000_01_EDX_MSR            (1U<< 5) /* MSR */
@@ -77,3 +89,18 @@
 #define FD_X86_CPUID_8000_01_EDX_PGE            (1U<<13) /* PGE */
 #define FD_X86_CPUID_8000_01_EDX_CMOV           (1U<<15) /* CMOV */
 #define FD_X86_CPUID_8000_01_EDX_NX             (1U<<20) /* NX bit */
+
+/* https://www.sandpile.org/x86/cpuid.htm#leaf_8000_000Ah */
+
+#define FD_X86_CPUID_8000_0A_EAX_HV_PRESENT     (1U<< 8) /* hypervisor present */
+
+#define FD_X86_CPUID_8000_0A_ECX_GUEST_PMC_FILT (1U<< 3) /* guest PMC event filtering */
+#define FD_X86_CPUID_8000_0A_ECX_PML            (1U<< 4) /* page modification logging */
+#define FD_X86_CPUID_8000_0A_ECX_X2AVIC_EXT     (1U<< 6) /* 4096 vCPUs supported in x2AVIC mode */
+
+#define FD_X86_CPUID_8000_0A_EDX_NP             (1U<< 0) /* nested paging */
+#define FD_X86_CPUID_8000_0A_EDX_PMC_VIRT       (1U<< 8) /* PMC virtualization */
+#define FD_X86_CPUID_8000_0A_EDX_AVIC           (1U<<13) /* AMD virtual interrupt controller */
+#define FD_X86_CPUID_8000_0A_EDX_X2AVIC         (1U<<18) /* x2AVIC */
+#define FD_X86_CPUID_8000_0A_EDX_VNMI           (1U<<25) /* NMI virtualization */
+#define FD_X86_CPUID_8000_0A_EDX_IBS_VIRT       (1U<<26) /* IBS virtualization */
