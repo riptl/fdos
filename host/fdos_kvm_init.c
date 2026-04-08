@@ -2,6 +2,7 @@
 #include "fdos_kvm.h"
 #include "fdos_cpuid.h"
 #include "../shared/fdos/fdos_abi.h"
+#include "../arch/x86/fd_x86_apic.h"
 #include "../arch/x86/fd_x86_msr.h"
 #include <stddef.h>
 #include <errno.h>
@@ -293,4 +294,28 @@ fdos_kvm_init( fdos_env_t * env,
   vcpu_xcrs_set ( vcpu_fd, cpu_features );
   vcpu_msrs_set ( env, vcpu_fd );
   vcpu_entry_set( env, vcpu_fd );
+}
+
+void
+fdos_kvm_init_apic( fdos_env_t * env,
+                    int          vm_fd,
+                    int          vcpu_fd ) {
+
+  if( FD_UNLIKELY( ioctl( vm_fd, KVM_SET_TSS_ADDR, FDOS_GPADDR_TSS )<0 ) ) {
+    FD_LOG_ERR(( "KVM_SET_TSS_ADDR failed (%i-%s)", errno, fd_io_strerror( errno ) ));
+  }
+
+  struct kvm_lapic_state lapic;
+  if( FD_UNLIKELY( ioctl( vcpu_fd, KVM_GET_LAPIC, &lapic )<0 ) ) {
+    FD_LOG_ERR(( "KVM_GET_LAPIC failed (%i-%s)", errno, fd_io_strerror( errno ) ));
+  }
+
+  uint lapic_svr = FD_LOAD( uint, &lapic.regs[ FD_X86_APIC_OFF_SVR ] );
+  FD_STORE( uint, &lapic.regs[ FD_X86_APIC_OFF_SVR     ], lapic_svr | 0x1ff );
+  FD_STORE( uint, &lapic.regs[ FD_X86_APIC_OFF_LVT_PMC ], 0xfe );
+  FD_STORE( uint, &lapic.regs[ FD_X86_APIC_OFF_TPR     ], 0x00 );
+
+  if( FD_UNLIKELY( ioctl( vcpu_fd, KVM_SET_LAPIC, &lapic )<0 ) ) {
+    FD_LOG_ERR(( "KVM_SET_LAPIC failed (%i-%s)", errno, fd_io_strerror( errno ) ));
+  }
 }

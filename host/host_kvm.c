@@ -23,6 +23,7 @@ main( int     argc,
   int flag_dump_pt    = fd_env_strip_cmdline_contains( &argc, &argv, "--dump-page-table" );
   int flag_dump_cpuid = fd_env_strip_cmdline_contains( &argc, &argv, "--dump-cpuid"      );
   int flag_init_only  = fd_env_strip_cmdline_contains( &argc, &argv, "--init-only"       );
+  int flag_pmc        = fd_env_strip_cmdline_contains( &argc, &argv, "--pmc"             );
   char const * img    = fd_env_strip_cmdline_cstr    ( &argc, &argv, "--img", NULL, NULL );
 
   if( FD_UNLIKELY( !img ) ) FD_LOG_ERR(( "missing --img argument" ));
@@ -60,6 +61,12 @@ main( int     argc,
     FD_LOG_ERR(( "KVM_CREATE_VM failed (%i-%s)", errno, fd_io_strerror( errno ) ));
   }
 
+  if( flag_pmc ) {
+    if( FD_UNLIKELY( ioctl( vm_fd, KVM_CREATE_IRQCHIP, 0 )<0 ) ) {
+      FD_LOG_ERR(( "KVM_CREATE_IRQCHIP failed (%i-%s)", errno, fd_io_strerror( errno ) ));
+    }
+  }
+
   int vcpu_fd = ioctl( vm_fd, KVM_CREATE_VCPU, 0 );
   if( FD_UNLIKELY( vcpu_fd<0 ) ) {
     FD_LOG_ERR(( "KVM_CREATE_VCPU failed (%i-%s)", errno, fd_io_strerror( errno ) ));
@@ -68,6 +75,7 @@ main( int     argc,
   /* Install guest kernel state into vCPU */
 
   fdos_kvm_init( env, kvm_fd, vm_fd, vcpu_fd );
+  if( flag_pmc ) fdos_kvm_init_apic( env, vm_fd, vcpu_fd );
 
   if( flag_dump_phys ) {
     FD_LOG_NOTICE(( "Guest physical memory map:\n" ));

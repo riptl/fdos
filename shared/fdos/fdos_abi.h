@@ -5,11 +5,13 @@
 
 /* Physical memory layout */
 
-#define FDOS_GPADDR_KERN_IMG   0x1000000UL /* kernel image */
-#define FDOS_GPADDR_KERN_HEAP  0x2000000UL /* page table, GDT, TSS, etc */
-#define FDOS_GPADDR_KERN_STACK 0x3000000UL /* guest stack */
-#define FDOS_GPADDR_USER_MEM   0x4000000UL /* user memory */
-#define FDOS_GPADDR_SHMEM      0x5000000UL /* external shared memory */
+#define FDOS_GPADDR_KERN_IMG     0x01000000UL /* kernel image */
+#define FDOS_GPADDR_KERN_HEAP    0x02000000UL /* page table, GDT, TSS, etc */
+#define FDOS_GPADDR_KERN_STACK   0x03000000UL /* guest stack */
+#define FDOS_GPADDR_USER_MEM     0x04000000UL /* user memory */
+#define FDOS_GPADDR_SHMEM        0x05000000UL /* external shared memory */
+#define FDOS_GPADDR_IDENTITY_MAP 0xfffbc000UL
+#define FDOS_GPADDR_TSS          0xfffbd000UL
 
 #define FDOS_KERN_STACK_SZ 2*FD_SHMEM_HUGE_PAGE_SZ
 

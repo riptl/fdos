@@ -7,6 +7,7 @@
 #define FD_X86_CPUID_01_ECX_SSSE3               (1U<< 9) /* part of x86-64-v2 */
 #define FD_X86_CPUID_01_ECX_SSE41               (1U<<19) /* part of x86-64-v2 */
 #define FD_X86_CPUID_01_ECX_SSE42               (1U<<20) /* part of x86-64-v2 */
+#define FD_X86_CPUID_01_ECX_X2APIC              (1U<<21) /* x2APIC */
 #define FD_X86_CPUID_01_ECX_MOVBE               (1U<<22) /* part of x86-64-v3 */
 #define FD_X86_CPUID_01_ECX_POPCNT              (1U<<23) /* part of x86-64-v2 */
 #define FD_X86_CPUID_01_ECX_AES                 (1U<<25) /* AES-NI */
@@ -16,6 +17,7 @@
 #define FD_X86_CPUID_01_EDX_TSC                 (1U<< 4) /* RDTSC instruction */
 #define FD_X86_CPUID_01_EDX_MSR                 (1U<< 5) /* RDMSR/WRMSR instructions */
 #define FD_X86_CPUID_01_EDX_PAE                 (1U<< 6) /* physical address extension */
+#define FD_X86_CPUID_01_EDX_APIC                (1U<< 9) /* on-chip APIC hardware */
 #define FD_X86_CPUID_01_EDX_PGE                 (1U<<13) /* page table global bit */
 #define FD_X86_CPUID_01_EDX_CMOV                (1U<<15) /* cmov instructions */
 #define FD_X86_CPUID_01_EDX_CLFL                (1U<<19) /* clflush instruction */
