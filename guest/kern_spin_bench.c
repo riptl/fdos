@@ -2,6 +2,7 @@
 #include "../shared/fdos/fdos_pvclock.h"
 #include "../shared/util/fd_util.h"
 #include "../arch/x86/fd_x86_msr.h"
+#include "../arch/x86/fd_x86_pmc.h"
 
 static struct {
   uint running    : 1;
@@ -10,22 +11,19 @@ static struct {
 
 static ulong nmi_cnt;
 
+static inline void
+wrmsr( uint  msr_id,
+       ulong value ) {
+  uint low  = (uint)value;
+  uint high = (uint)( value>>32 );
+  asm volatile( "wrmsr" : : "c"(msr_id), "a"(low), "d"(high) );
+}
+
 static void
 arm_pmc( void ) {
-  ulong msr_val = (ulong)-100000L;
-  uint  val_hi  = (uint)( msr_val >> 32 );
-  uint  val_lo  = (uint)( msr_val & 0xffffffffUL );
-  __asm__ volatile (
-    "movl %0, %%ecx;\n"
-    "movl %1, %%eax;\n"
-    "movl %2, %%edx;\n"
-    "wrmsr;\n"
-    :
-    : "i"(FD_X86_MSR_F15H_PERF_CTR0),
-      "r"(val_lo),
-      "r"(val_hi)
-    : "eax", "ecx", "edx"
-  );
+  wrmsr( FD_X86_MSR_F15H_PERF_CTR0, -(long)10000L );
+
+  wrmsr( FD_X86_MSR_AMD64_PERF_GLOBAL_CTRL, 1UL );
 }
 
 void
@@ -34,16 +32,6 @@ nmi_handler1( void ) {
   flags.nmi_active = 1;
   if( FD_UNLIKELY( !flags.running ) ) return;
   nmi_cnt++;
-  // /* Clear PMC0 overflow status, then reload counter */
-  // __asm__ volatile (
-  //   "movl %0, %%ecx;\n"
-  //   "movl $1, %%eax;\n"
-  //   "xorl %%edx, %%edx;\n"
-  //   "wrmsr;\n"
-  //   :
-  //   : "i"(FD_X86_MSR_AMD64_PERF_GLOBAL_STATUS_CLR)
-  //   : "eax", "ecx", "edx"
-  // );
   arm_pmc();
   FD_COMPILER_MFENCE();
   flags.nmi_active = 0;
@@ -181,6 +169,16 @@ fdos_kern_main( fdos_kern_args_t * args ) {
   fd_log_thread_set( "kvm0" );
   fd_log_wallclock_set( fd_pvclock_now, g_pvclock );
   fd_log_colorize_set( 1 );
+
+  wrmsr( FD_X86_MSR_F15H_PERF_CTRL0, (0x0076) |
+      FD_X86_PMC_INT |
+      FD_X86_PMC_EN  |
+      FD_X86_PMC_OS );
+
+  wrmsr( FD_X86_MSR_F15H_PERF_CTR0, -(long)100000L );
+
+  wrmsr( FD_X86_MSR_AMD64_PERF_GLOBAL_CTRL, 1UL );
+
   long dt = -fd_tickcount();
   ulong const limit = 1UL<<32UL;
   flags.running = 1;
@@ -188,8 +186,8 @@ fdos_kern_main( fdos_kern_args_t * args ) {
     __asm__ ( "nop" : : : "memory" );
   }
   dt += fd_tickcount();
-  FD_LOG_NOTICE(( "%g iterations in %g ticks", (double)limit, (double)dt ));
   FD_LOG_NOTICE(( "%g NMIs handled", (double)nmi_cnt ));
+  FD_LOG_NOTICE(( "%g iterations in %g ticks", (double)limit, (double)dt ));
   FD_LOG_ERR(( "Done" ));
   for(;;) {}
 }
