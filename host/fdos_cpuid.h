@@ -12,6 +12,7 @@
 #define FDOS_CPU_FEAT_FRED    (1UL<<3)
 #define FDOS_CPU_FEAT_APX     (1UL<<4)
 #define FDOS_CPU_FEAT_VNMI    (1UL<<5)
+#define FDOS_CPU_FEAT_PMCVIRT (1UL<<6)
 
 struct fdos_cpuid_check {
   ulong cpu_feat;

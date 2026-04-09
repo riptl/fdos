@@ -86,6 +86,8 @@ fdos_cpuid_check_push( fdos_cpuid_check_t * check,
     check->cpuid_8000_0a = 1;
     check->cpu_feat |=
         ( edx & FD_X86_CPUID_8000_0A_EDX_VNMI ) ? FDOS_CPU_FEAT_VNMI : 0UL;
+    check->cpu_feat |=
+        ( edx & FD_X86_CPUID_8000_0A_EDX_PMC_VIRT ) ? FDOS_CPU_FEAT_PMCVIRT : 0UL;
     break;
 # undef CPUID_PATH
   }
@@ -104,6 +106,7 @@ fdos_cpuid_validate( fdos_cpuid_check_t const * check ) {
   int const feat_fred = !!( cpu_feat & FDOS_CPU_FEAT_FRED    );
   int const feat_apx  = !!( cpu_feat & FDOS_CPU_FEAT_APX     );
   int const feat_vnmi = !!( cpu_feat & FDOS_CPU_FEAT_VNMI    );
+  int const feat_vpmc = !!( cpu_feat & FDOS_CPU_FEAT_PMCVIRT );
   if( FD_UNLIKELY( !feat_xmm ) ) FD_LOG_ERR(( "vCPU has no xmm registers (CPUID detection broken?)" ));
   if( feat_ymm ) FD_LOG_INFO(( "vCPU has ymm registers (AVX)"    ));
   if( feat_zmm ) FD_LOG_INFO(( "vCPU has zmm registers (AVX512)" ));
@@ -111,4 +114,5 @@ fdos_cpuid_validate( fdos_cpuid_check_t const * check ) {
   if( feat_fred ) FD_LOG_INFO(( "vCPU has FRED" ));
   if( feat_apx  ) FD_LOG_INFO(( "vCPU has APX"  ));
   if( feat_vnmi ) FD_LOG_INFO(( "vCPU has VNMI" ));
+  if( feat_vpmc ) FD_LOG_INFO(( "vCPU has PmcVirt" ));
 }
