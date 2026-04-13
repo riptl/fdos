@@ -39,6 +39,7 @@ endfunction()
 
 add_fdos_kern(kern_hello)
 add_fdos_kern(kern_spin)
-add_fdos_kern(kern_spin_bench)
 add_fdos_kern(kern_gp_fault)
 add_fdos_kern(kern_page_fault)
+add_fdos_kern(kern_bounce)
+add_fdos_kern(kern_pmc_nmi)
