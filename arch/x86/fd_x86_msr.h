@@ -89,3 +89,22 @@
 #define FD_X86_MSR_AMD64_PERF_GLOBAL_CTRL         0xc0000301
 #define FD_X86_MSR_AMD64_PERF_GLOBAL_STATUS_CLR   0xc0000302
 #define FD_X86_MSR_AMD64_PERF_GLOBAL_STATUS_SET   0xc0000303
+
+#if defined(__x86_64__)
+
+static inline ulong
+fd_x86_rdmsr( uint msr_id ) {
+  uint low, high;
+  asm volatile( "rdmsr" : "=a"(low), "=d"(high) : "c"(msr_id) );
+  return ((ulong)high << 32) | (ulong)low;
+}
+
+static inline void
+fd_x86_wrmsr( uint  msr_id,
+       ulong value ) {
+  uint low  = (uint)value;
+  uint high = (uint)( value>>32 );
+  asm volatile( "wrmsr" : : "c"(msr_id), "a"(low), "d"(high) );
+}
+
+#endif

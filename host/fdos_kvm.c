@@ -181,6 +181,10 @@ maybe_handle_interrupt( fdos_env_t * env,
 
   ulong fault_rip = 0UL;
   switch( idx ) {
+  case 0x06: { /* undefined opcode */
+    if( stack ) fault_rip = FD_LOAD( ulong, stack );
+    break;
+  }
   case 0x0d: { /* general protection fault */
     if( stack ) {
       fault_rip = FD_LOAD( ulong, stack+8UL );

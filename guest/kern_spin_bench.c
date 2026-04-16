@@ -11,19 +11,15 @@ static struct {
 
 static ulong nmi_cnt;
 
-static inline void
-wrmsr( uint  msr_id,
-       ulong value ) {
-  uint low  = (uint)value;
-  uint high = (uint)( value>>32 );
-  asm volatile( "wrmsr" : : "c"(msr_id), "a"(low), "d"(high) );
-}
 
 static void
 arm_pmc( void ) {
-  wrmsr( FD_X86_MSR_F15H_PERF_CTR0, -(long)10000L );
+  ulong status = fd_x86_rdmsr( FD_X86_MSR_AMD64_PERF_GLOBAL_STATUS_CLR );
+  (void)status;
 
-  wrmsr( FD_X86_MSR_AMD64_PERF_GLOBAL_CTRL, 1UL );
+  fd_x86_wrmsr( FD_X86_MSR_F15H_PERF_CTR0, -(long)10000L );
+
+  fd_x86_wrmsr( FD_X86_MSR_AMD64_PERF_GLOBAL_CTRL, 1UL );
 }
 
 void
@@ -170,14 +166,18 @@ fdos_kern_main( fdos_kern_args_t * args ) {
   fd_log_wallclock_set( fd_pvclock_now, g_pvclock );
   fd_log_colorize_set( 1 );
 
-  wrmsr( FD_X86_MSR_F15H_PERF_CTRL0, (0x0076) |
+  FD_LOG_NOTICE(( "PERF_CTRL0 = %#lx", fd_x86_rdmsr( FD_X86_MSR_F15H_PERF_CTRL0 ) ));
+  FD_LOG_NOTICE(( "PERF_CTR0  = %#lx", fd_x86_rdmsr( FD_X86_MSR_F15H_PERF_CTR0 ) ));
+  FD_LOG_NOTICE(( "PERF_GLOBAL_CTRL = %#lx", fd_x86_rdmsr( FD_X86_MSR_AMD64_PERF_GLOBAL_CTRL ) ));
+
+  fd_x86_wrmsr( FD_X86_MSR_F15H_PERF_CTRL0, (0x0076) |
       FD_X86_PMC_INT |
       FD_X86_PMC_EN  |
       FD_X86_PMC_OS );
 
-  wrmsr( FD_X86_MSR_F15H_PERF_CTR0, -(long)100000L );
+  fd_x86_wrmsr( FD_X86_MSR_F15H_PERF_CTR0, -(long)100000L );
 
-  wrmsr( FD_X86_MSR_AMD64_PERF_GLOBAL_CTRL, 1UL );
+  fd_x86_wrmsr( FD_X86_MSR_AMD64_PERF_GLOBAL_CTRL, 1UL );
 
   long dt = -fd_tickcount();
   ulong const limit = 1UL<<32UL;
