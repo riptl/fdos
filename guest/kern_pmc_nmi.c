@@ -11,12 +11,8 @@ static struct {
 
 static ulong nmi_cnt;
 
-
 static void
 arm_pmc( void ) {
-  ulong status = fd_x86_rdmsr( FD_X86_MSR_AMD64_PERF_GLOBAL_STATUS_CLR );
-  (void)status;
-
   fd_x86_wrmsr( FD_X86_MSR_F15H_PERF_CTR0, -(long)10000L );
 
   fd_x86_wrmsr( FD_X86_MSR_AMD64_PERF_GLOBAL_CTRL, 1UL );
@@ -171,9 +167,9 @@ fdos_kern_main( fdos_kern_args_t * args ) {
   FD_LOG_NOTICE(( "PERF_GLOBAL_CTRL = %#lx", fd_x86_rdmsr( FD_X86_MSR_AMD64_PERF_GLOBAL_CTRL ) ));
 
   fd_x86_wrmsr( FD_X86_MSR_F15H_PERF_CTRL0, (0x0076) |
-      FD_X86_PMC_INT |
-      FD_X86_PMC_EN  |
-      FD_X86_PMC_OS );
+      FD_X86_PMC_SEL_INT |
+      FD_X86_PMC_SEL_EN  |
+      FD_X86_PMC_SEL_OS );
 
   fd_x86_wrmsr( FD_X86_MSR_F15H_PERF_CTR0, -(long)100000L );
 

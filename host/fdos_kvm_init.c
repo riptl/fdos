@@ -191,8 +191,8 @@ vcpu_msrs_set( fdos_env_t * env,
 
   /* SYSCALL configuration */
 
-  ulong msr_star = (( (FDOS_GDT_IDX_KERN_CS <<3)   )<<32) | /* sysret cs base -> kernel CS */
-                   (( (FDOS_GDT_IDX_U32_CODE<<3)|3 )<<48);  /* user CS */
+  ulong msr_star = (( (FDOS_GDT_IDX_KERN_CS<<3)   )<<32) | /* sysret cs base -> kernel CS */
+                   (( (FDOS_GDT_IDX_USER_CS<<3)|3 )<<48);  /* user CS */
   msr_req->entries[ i   ].index = FD_X86_MSR_STAR;
   msr_req->entries[ i++ ].data  = msr_star;
 
@@ -357,9 +357,9 @@ fdos_kvm_init_pmc( fdos_env_t * env,
   msr_req->entries[ i   ].index = FD_X86_MSR_F15H_PERF_CTRL0;
   msr_req->entries[ i++ ].data  =
       (0x0076) |
-      FD_X86_PMC_INT |
-      FD_X86_PMC_EN  |
-      FD_X86_PMC_OS;
+      FD_X86_PMC_SEL_INT |
+      FD_X86_PMC_SEL_EN  |
+      FD_X86_PMC_SEL_OS;
 
   msr_req->entries[ i   ].index = FD_X86_MSR_F15H_PERF_CTR0;
   msr_req->entries[ i++ ].data  = (ulong)(-(long)100000L);
