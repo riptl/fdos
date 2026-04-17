@@ -51,7 +51,7 @@ fd_x86_disasm( uchar const * code,
   }
 
   /* Pad with spaces to ensure fixed width */
-  for( ; visible_len<40 && i<FD_X86_DISASM_MAX-1; i++, visible_len++ ) {
+  for( ; visible_len<44 && i<FD_X86_DISASM_MAX-1; i++, visible_len++ ) {
     str[i] = ' ';
   }
   str[i] = '\0';
