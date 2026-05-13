@@ -13,6 +13,14 @@
 #include <sys/mman.h> /* mmap(2) */
 #include <sys/stat.h>
 
+#include <stdio.h>
+#include <signal.h>
+#include <time.h>
+#include <unistd.h>
+
+
+void every_second(int sig) { (void)sig; }
+
 int
 main( int     argc,
       char ** argv ) {
@@ -71,6 +79,20 @@ main( int     argc,
   if( FD_UNLIKELY( vcpu_fd<0 ) ) {
     FD_LOG_ERR(( "KVM_CREATE_VCPU failed (%i-%s)", errno, fd_io_strerror( errno ) ));
   }
+
+    struct sigaction sa = { .sa_handler = every_second };
+    sigaction(SIGALRM, &sa, NULL);
+
+    struct sigevent sev = { .sigev_notify = SIGEV_SIGNAL, .sigev_signo = SIGALRM };
+    struct itimerspec its = {
+        .it_value    = { .tv_sec = 1 },
+        .it_interval = { .tv_sec = 1 }
+    };
+
+    timer_t tid;
+    timer_create(CLOCK_MONOTONIC, &sev, &tid);
+    timer_settime(tid, 0, &its, NULL);
+
 
   /* Install guest kernel state into vCPU */
 

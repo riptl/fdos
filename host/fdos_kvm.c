@@ -105,9 +105,9 @@ trace_rip( fdos_env_t *     env,
   fd_cstr_fini( p );
   ulong hex_len = (ulong)( p - hex );
 
-  fprintf( stderr, "\033[2mrip=%016lx\033[0m %s \033[2mrsp=%16llx  %.*s\033[0m\n",
+  fprintf( stderr, "\033[2mrip=%016lx\033[0m %s \033[2mrsp=%16llx rcx=%16llx  %.*s\033[0m\n",
            rip, dis,
-           regs.rsp,
+           regs.rsp, regs.rcx,
            (int)hex_len, hex );
 }
 
@@ -279,6 +279,36 @@ fdos_kvm_run( fdos_env_t *     kern,
   case KVM_EXIT_HLT: {
     FD_LOG_WARNING(( "Unhandled HLT instruction (no LAPIC?)" ));
     return 1;
+  }
+  case KVM_EXIT_INTR: {
+
+    struct {
+        struct kvm_msrs      header;
+        struct kvm_msr_entry entries[2];
+    } msrs = {
+        .header.nmsrs    = 2,
+        .entries[0].index = FD_X86_MSR_F15H_PERF_CTR0,
+        .entries[1].index = FD_X86_MSR_F15H_PERF_CTR1,
+    };
+
+    if (ioctl(vcpu_fd, KVM_GET_MSRS, &msrs) < 0) {
+        perror("KVM_GET_MSRS");
+        return 1;
+    }
+
+    static ulong c0, i0;
+    ulong c1 = msrs.entries[0].data;
+    ulong i1 = msrs.entries[1].data;
+    ulong cd = c1-c0;
+    ulong id = i1-i0;
+    c0 = c1;
+    i0 = i1;
+
+    //FD_LOG_NOTICE(( "cycles/s          %30lu", cd ));
+    //FD_LOG_NOTICE(( "instructions/s    %30lu", id ));
+    FD_LOG_NOTICE(( "cycles/instruction %g", ((double)cd/id) ));
+
+    return 0;
   }
   case KVM_EXIT_FAIL_ENTRY:
     FD_LOG_ERR(( "KVM guest failed to enter (hardware_entry_failure_reason=%#llx)", kvm_run->fail_entry.hardware_entry_failure_reason ));

@@ -8,6 +8,8 @@
 
 static ulong stack[ 4 ];
 
+static ulong counter;
+
 void
 bounce_ring3( void );
 
@@ -35,6 +37,7 @@ __attribute__((naked))
 void
 bounce_ring3( void ) {
   __asm__ volatile (
+    "incq 0(%rsi)\n"
     "syscall\n"
     "ud2\n"
   );
@@ -48,7 +51,7 @@ start_sysret( void ) {
   ulong rip = (ulong)bounce_ring3;
   __asm__ volatile (
     "jmp bounce_ring0_sysret\n"
-    : : "D" (rip)
+    : : "D" (rip), "S" (&counter)
   );
   __builtin_unreachable();
 }
@@ -89,3 +92,18 @@ fdos_kern_main( void ) {
   start_sysret(); /* ~ 38.2 cycle per round trip (Zen 5)*/
   // start_lretq(); /* ~80 cycle per round trip (Zen 5) */
 }
+
+/* 7.33 cycles/instruction
+
+   syscall
+   inc qword ptr [rsi]
+   mov rcx, rdi
+   sysretq
+   inc qword ptr [rsi]
+
+   11.00 cycles/instruction
+
+   syscall
+   mov rcx, rdi
+   sysretq
+   inc qword ptr [rsi]   */
